@@ -10,11 +10,15 @@
 
 ### M1 — Persistence foundation
 
+**Estado:** completado.
+
 **Objetivo:** incorporar persistencia multi-tenant para las identidades organizacionales básicas.
 
 **Resultado esperado:** Supabase, Drizzle y migraciones configurados, con `Organization`, `User` y `Membership` persistidos.
 
 ### M2 — Authentication
+
+**Estado:** completado.
 
 **Objetivo:** autenticar usuarios y resolver su acceso a una organización de forma segura.
 
