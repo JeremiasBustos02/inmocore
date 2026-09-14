@@ -1,11 +1,17 @@
 import type { Metadata } from "next";
-import { Geist } from "next/font/google";
+import { Instrument_Serif, Manrope } from "next/font/google";
 import { cn } from "@/lib/utils";
 import "./globals.css";
 
-const geist = Geist({
+const manrope = Manrope({
   subsets: ["latin"],
-  variable: "--font-geist-sans",
+  variable: "--font-manrope",
+});
+
+const instrumentSerif = Instrument_Serif({
+  subsets: ["latin"],
+  weight: "400",
+  variable: "--font-instrument-serif",
 });
 
 export const metadata: Metadata = {
@@ -19,7 +25,14 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="es" className={cn("font-sans", geist.variable)}>
+    <html
+      lang="es"
+      className={cn(
+        "font-sans",
+        manrope.variable,
+        instrumentSerif.variable,
+      )}
+    >
       <body>{children}</body>
     </html>
   );
