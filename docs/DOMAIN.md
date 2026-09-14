@@ -22,6 +22,9 @@ Inmueble gestionado por una organización.
 - Tipo: casa, departamento, terreno, local, oficina, quinta, cochera u otro.
 - Estado comercial: `draft`, `available`, `reserved`, `sold`, `rented` o `archived`.
 - Información mínima: referencia, título, descripción, precio, moneda, ubicación, características principales, superficies, estado de publicación y condición de destacada.
+- La referencia identifica una propiedad dentro de su organización y no necesita ser única globalmente.
+- El precio se almacena como unidades mínimas enteras y puede omitirse cuando se informa mediante consulta.
+- Los estados `draft`, `sold`, `rented` y `archived` no pueden permanecer publicados. Archivar conserva el registro y lo despublica.
 
 Las amenities no se modelan inicialmente como un conjunto exhaustivo de columnas.
 

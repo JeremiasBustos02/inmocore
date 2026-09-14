@@ -15,6 +15,13 @@
       "when": 1789343240692,
       "tag": "0001_m2_auth_rls",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1789344357085,
+      "tag": "0002_m3a_properties_core",
+      "breakpoints": true
     }
   ]
 }

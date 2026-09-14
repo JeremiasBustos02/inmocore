@@ -1,12 +1,18 @@
 import { sql } from "drizzle-orm";
 import {
+  bigint,
+  boolean,
+  check,
+  doublePrecision,
   index,
+  integer,
   pgEnum,
   pgPolicy,
   pgTable,
   primaryKey,
   text,
   timestamp,
+  unique,
   uuid,
 } from "drizzle-orm/pg-core";
 import {
@@ -20,6 +26,32 @@ export const membershipRole = pgEnum("membership_role", [
   "admin",
   "agent",
 ]);
+
+export const operationTypes = ["sale", "rent"] as const;
+export const propertyTypes = [
+  "house",
+  "apartment",
+  "land",
+  "commercial",
+  "office",
+  "country_house",
+  "garage",
+  "other",
+] as const;
+export const propertyStatuses = [
+  "draft",
+  "available",
+  "reserved",
+  "sold",
+  "rented",
+  "archived",
+] as const;
+export const currencies = ["ARS", "USD"] as const;
+
+export const operationType = pgEnum("operation_type", operationTypes);
+export const propertyType = pgEnum("property_type", propertyTypes);
+export const propertyStatus = pgEnum("property_status", propertyStatuses);
+export const propertyCurrency = pgEnum("currency", currencies);
 
 export const organizations = pgTable(
   "organizations",
@@ -69,6 +101,93 @@ export const memberships = pgTable(
       for: "select",
       to: authenticatedRole,
       using: sql`${table.userId} = ${authUid}`,
+    }),
+  ],
+).enableRLS();
+
+export const properties = pgTable(
+  "properties",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    organizationId: uuid("organization_id")
+      .notNull()
+      .references(() => organizations.id, { onDelete: "cascade" }),
+    reference: text("reference").notNull(),
+    title: text("title").notNull(),
+    description: text("description"),
+    operationType: operationType("operation_type").notNull(),
+    propertyType: propertyType("property_type").notNull(),
+    status: propertyStatus("status").notNull(),
+    priceAmount: bigint("price_amount", { mode: "number" }),
+    currency: propertyCurrency("currency"),
+    address: text("address"),
+    city: text("city").notNull(),
+    province: text("province").notNull(),
+    country: text("country").default("Argentina").notNull(),
+    latitude: doublePrecision("latitude"),
+    longitude: doublePrecision("longitude"),
+    bedrooms: integer("bedrooms"),
+    bathrooms: integer("bathrooms"),
+    rooms: integer("rooms"),
+    garageSpaces: integer("garage_spaces"),
+    coveredAreaM2: integer("covered_area_m2"),
+    totalAreaM2: integer("total_area_m2"),
+    isPublished: boolean("is_published").default(false).notNull(),
+    isFeatured: boolean("is_featured").default(false).notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => [
+    unique("properties_organization_reference_unique").on(
+      table.organizationId,
+      table.reference,
+    ),
+    index("properties_organization_status_idx").on(
+      table.organizationId,
+      table.status,
+    ),
+    index("properties_organization_published_idx").on(
+      table.organizationId,
+      table.isPublished,
+    ),
+    check(
+      "properties_bedrooms_non_negative",
+      sql`${table.bedrooms} >= 0`,
+    ),
+    check(
+      "properties_bathrooms_non_negative",
+      sql`${table.bathrooms} >= 0`,
+    ),
+    check("properties_rooms_non_negative", sql`${table.rooms} >= 0`),
+    check(
+      "properties_garage_spaces_non_negative",
+      sql`${table.garageSpaces} >= 0`,
+    ),
+    check(
+      "properties_covered_area_positive",
+      sql`${table.coveredAreaM2} > 0`,
+    ),
+    check(
+      "properties_total_area_positive",
+      sql`${table.totalAreaM2} > 0`,
+    ),
+    check(
+      "properties_price_amount_non_negative",
+      sql`${table.priceAmount} >= 0`,
+    ),
+    pgPolicy("members can read properties", {
+      for: "select",
+      to: authenticatedRole,
+      using: sql`exists (
+        select 1
+        from memberships
+        where memberships.organization_id = ${table.organizationId}
+          and memberships.user_id = ${authUid}
+      )`,
     }),
   ],
 ).enableRLS();

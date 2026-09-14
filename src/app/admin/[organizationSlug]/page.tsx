@@ -1,6 +1,7 @@
+import Link from "next/link";
 import { notFound } from "next/navigation";
 import { logout } from "@/app/auth-actions";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { requireAuthenticatedUserId } from "@/lib/auth";
 import { requireOrganizationMembership } from "@/lib/organizations";
 
@@ -35,11 +36,19 @@ export default async function OrganizationPage({
           Rol: <span className="capitalize">{membership.role}</span>
         </p>
 
-        <form action={logout} className="mt-8">
-          <Button variant="outline" type="submit">
-            Cerrar sesión
-          </Button>
-        </form>
+        <div className="mt-8 flex flex-wrap gap-3">
+          <Link
+            className={buttonVariants()}
+            href={`/admin/${encodeURIComponent(organizationSlug)}/properties`}
+          >
+            Propiedades
+          </Link>
+          <form action={logout}>
+            <Button variant="outline" type="submit">
+              Cerrar sesión
+            </Button>
+          </form>
+        </div>
       </section>
     </main>
   );
