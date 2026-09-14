@@ -30,7 +30,7 @@ Las amenities no se modelan inicialmente como un conjunto exhaustivo de columnas
 
 ## PropertyImage
 
-Imagen perteneciente a una propiedad. Las imágenes tienen un orden y una puede funcionar como portada.
+Imagen perteneciente a una propiedad. Conserva únicamente la ruta del objeto en Storage y un orden no negativo. La imagen con menor orden funciona como portada; no se mantiene un estado de portada independiente.
 
 ## Contact
 

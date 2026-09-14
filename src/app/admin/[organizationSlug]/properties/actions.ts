@@ -154,12 +154,16 @@ export async function createProperty(
   }
 
   let duplicateReference = false;
+  let createdProperty: { id: string } | undefined;
 
   try {
-    await db.insert(properties).values({
-      organizationId: membership.id,
-      ...values,
-    });
+    [createdProperty] = await db
+      .insert(properties)
+      .values({
+        organizationId: membership.id,
+        ...values,
+      })
+      .returning({ id: properties.id });
   } catch (error) {
     if (!isUniqueViolation(error)) {
       throw error;
@@ -171,8 +175,14 @@ export async function createProperty(
     redirect(`${propertiesPath(organizationSlug)}/new?error=reference`);
   }
 
+  if (!createdProperty) {
+    throw new Error("The property could not be created.");
+  }
+
   revalidatePath(propertiesPath(organizationSlug));
-  redirect(propertiesPath(organizationSlug));
+  redirect(
+    `${propertiesPath(organizationSlug)}/${encodeURIComponent(createdProperty.id)}/edit`,
+  );
 }
 
 export async function updateProperty(

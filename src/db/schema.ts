@@ -191,3 +191,40 @@ export const properties = pgTable(
     }),
   ],
 ).enableRLS();
+
+export const propertyImages = pgTable(
+  "property_images",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    propertyId: uuid("property_id")
+      .notNull()
+      .references(() => properties.id, { onDelete: "cascade" }),
+    storagePath: text("storage_path").notNull().unique(),
+    sortOrder: integer("sort_order").default(0).notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => [
+    index("property_images_property_order_idx").on(
+      table.propertyId,
+      table.sortOrder,
+    ),
+    check(
+      "property_images_sort_order_non_negative",
+      sql`${table.sortOrder} >= 0`,
+    ),
+    pgPolicy("members can read property images", {
+      for: "select",
+      to: authenticatedRole,
+      using: sql`exists (
+        select 1
+        from properties
+        inner join memberships
+          on memberships.organization_id = properties.organization_id
+        where properties.id = ${table.propertyId}
+          and memberships.user_id = ${authUid}
+      )`,
+    }),
+  ],
+).enableRLS();

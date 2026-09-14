@@ -1,12 +1,15 @@
-import { and, eq } from "drizzle-orm";
+import { and, asc, eq } from "drizzle-orm";
 import { notFound } from "next/navigation";
 import { db } from "@/db";
-import { properties } from "@/db/schema";
+import { properties, propertyImages } from "@/db/schema";
 import { requireAuthenticatedUserId } from "@/lib/auth";
 import { requireOrganizationMembership } from "@/lib/organizations";
 import { archiveProperty, updateProperty } from "../../actions";
 import { PropertyForm } from "../../property-form";
 import { Button } from "@/components/ui/button";
+import { PROPERTY_IMAGES_BUCKET } from "@/lib/property-images";
+import { createClient } from "@/lib/supabase/server";
+import { PropertyImages } from "./property-images";
 
 type EditPropertyPageProps = {
   params: Promise<{ organizationSlug: string; propertyId: string }>;
@@ -32,6 +35,22 @@ export default async function EditPropertyPage({ params, searchParams }: EditPro
     notFound();
   }
 
+  const images = await db
+    .select({
+      id: propertyImages.id,
+      storagePath: propertyImages.storagePath,
+    })
+    .from(propertyImages)
+    .where(eq(propertyImages.propertyId, property.id))
+    .orderBy(asc(propertyImages.sortOrder), asc(propertyImages.createdAt));
+  const supabase = await createClient();
+  const imagesWithUrls = images.map((image) => ({
+    id: image.id,
+    publicUrl: supabase.storage
+      .from(PROPERTY_IMAGES_BUCKET)
+      .getPublicUrl(image.storagePath).data.publicUrl,
+  }));
+
   const { error } = await searchParams;
   const propertiesHref = `/admin/${encodeURIComponent(organizationSlug)}/properties`;
   const updateAction = updateProperty.bind(null, organizationSlug, propertyId);
@@ -44,6 +63,13 @@ export default async function EditPropertyPage({ params, searchParams }: EditPro
         <h1 className="text-3xl font-semibold tracking-tight">Editar propiedad</h1>
       </header>
       <PropertyForm action={updateAction} cancelHref={propertiesHref} error={error} initialValues={property} submitLabel="Guardar cambios" />
+      <PropertyImages
+        images={imagesWithUrls}
+        organizationId={membership.id}
+        organizationSlug={organizationSlug}
+        propertyId={property.id}
+        propertyTitle={property.title}
+      />
       {property.status !== "archived" ? (
         <section className="flex flex-col gap-3 border-t pt-6">
           <h2 className="font-medium">Archivar propiedad</h2>

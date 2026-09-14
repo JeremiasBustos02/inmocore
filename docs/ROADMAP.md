@@ -26,7 +26,7 @@
 
 ### M3 — Properties
 
-**Progreso:** M3A (núcleo de propiedades) completado; imágenes pendientes.
+**Estado:** completado.
 
 **Objetivo:** gestionar el inventario inmobiliario inicial.
 
