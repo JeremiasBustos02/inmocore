@@ -14,7 +14,7 @@ export function PublicHeader({
   const propertiesHref = `${homeHref}/properties`;
   const links = [
     { label: "Inicio", href: homeHref },
-    { label: "Propiedades", href: `${homeHref}#propiedades` },
+    { label: "Propiedades", href: propertiesHref },
     { label: "Venta", href: `${propertiesHref}?operation=sale` },
     { label: "Alquiler", href: `${propertiesHref}?operation=rent` },
     { label: "Contacto", href: `${homeHref}#contacto` },

@@ -9,6 +9,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { publicPropertyTypeOptions } from "./public-property-options";
 
 type PropertySearchProps = {
   cities: string[];
@@ -17,16 +18,6 @@ type PropertySearchProps = {
 
 const fieldClassName =
   "!h-[52px] w-full min-w-0 rounded-[10px] border border-[#e5e5e5] bg-card px-4 text-[15px] font-normal text-foreground outline-none transition-[border-color,box-shadow] duration-200 focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/20";
-
-const propertyTypes = [
-  { value: "house", label: "Casa" },
-  { value: "apartment", label: "Departamento" },
-  { value: "land", label: "Terreno" },
-  { value: "commercial", label: "Local" },
-  { value: "office", label: "Oficina" },
-  { value: "country_house", label: "Quinta" },
-  { value: "garage", label: "Cochera" },
-] as const;
 
 // Currency-aware price ranges belong to the complete catalog filters in M4B.
 const priceRanges = [
@@ -79,7 +70,7 @@ export function PropertySearch({ cities, organizationSlug }: PropertySearchProps
           <span className="sr-only">Tipo de propiedad</span>
           <Select
             defaultValue=""
-            items={[{ value: "", label: "Todos los tipos" }, ...propertyTypes]}
+            items={[{ value: "", label: "Todos los tipos" }, ...publicPropertyTypeOptions]}
             name="type"
           >
             <SelectTrigger className={fieldClassName}>
@@ -93,7 +84,7 @@ export function PropertySearch({ cities, organizationSlug }: PropertySearchProps
             >
               <SelectGroup>
                 <SelectItem value="">Todos los tipos</SelectItem>
-                {propertyTypes.map((propertyType) => (
+                {publicPropertyTypeOptions.map((propertyType) => (
                   <SelectItem key={propertyType.value} value={propertyType.value}>
                     {propertyType.label}
                   </SelectItem>

@@ -2,18 +2,7 @@ import { ArrowUpRight, House } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import type { PublicProperty } from "./public-data";
-
-const operationLabels = { sale: "Venta", rent: "Alquiler" } as const;
-
-function formatPrice(priceAmount: number | null, currency: "ARS" | "USD" | null) {
-  if (priceAmount === null || currency === null) return "Consultar precio";
-
-  return new Intl.NumberFormat("es-AR", {
-    style: "currency",
-    currency,
-    maximumFractionDigits: 0,
-  }).format(priceAmount / 100);
-}
+import { formatPublicPrice, publicOperationLabels } from "./public-property-options";
 
 type PropertyCardProps = {
   organizationSlug: string;
@@ -59,7 +48,7 @@ export function PropertyCard({ organizationSlug, property }: PropertyCardProps) 
 
         <div className="pt-4">
           <p className="mb-2 text-xs font-semibold tracking-[0.12em] text-muted-foreground uppercase">
-            {operationLabels[property.operationType]}
+            {publicOperationLabels[property.operationType]}
           </p>
           <div className="flex items-start justify-between gap-4">
             <div className="min-w-0">
@@ -76,7 +65,7 @@ export function PropertyCard({ organizationSlug, property }: PropertyCardProps) 
             </span>
           </div>
           <p className="mt-3 text-base font-semibold tabular-nums">
-            {formatPrice(property.priceAmount, property.currency)}
+            {formatPublicPrice(property.priceAmount, property.currency)}
           </p>
           <p className="mt-3 text-sm text-muted-foreground">{property.city}</p>
           {details.length > 0 ? (

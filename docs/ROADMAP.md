@@ -34,9 +34,11 @@
 
 ### M4 — Public website
 
+**Estado:** en progreso (M4A y M4B completados; M4C pendiente).
+
 **Objetivo:** publicar la oferta de cada inmobiliaria en un sitio accesible y responsive.
 
-**Resultado esperado:** home, catálogo con filtros y ficha pública de propiedad sobre los datos administrativos.
+**Resultado actual:** home, catálogo con filtros y ficha pública de propiedad operativos sobre los datos administrativos. El milestone se cerrará con el trabajo de SEO de M4C.
 
 ### M5 — Contacts & inquiries
 
