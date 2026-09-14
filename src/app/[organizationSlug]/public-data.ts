@@ -113,6 +113,22 @@ export async function getPublicHomeData(organizationId: string) {
   );
 }
 
+export async function getPublicCities(organizationId: string) {
+  const cityList = await db
+    .selectDistinct({ city: properties.city })
+    .from(properties)
+    .where(
+      and(
+        eq(properties.organizationId, organizationId),
+        eq(properties.isPublished, true),
+        ne(properties.status, "archived"),
+      ),
+    )
+    .orderBy(asc(properties.city));
+
+  return cityList.map(({ city }) => city).filter((city) => city.trim().length > 0);
+}
+
 export async function getPublicPropertySummary(
   organizationId: string,
   propertyId: string,

@@ -1,17 +1,10 @@
 import type { Metadata } from "next";
-import { Instrument_Serif, Manrope } from "next/font/google";
-import { cn } from "@/lib/utils";
+import { Manrope } from "next/font/google";
 import "./globals.css";
 
 const manrope = Manrope({
   subsets: ["latin"],
   variable: "--font-manrope",
-});
-
-const instrumentSerif = Instrument_Serif({
-  subsets: ["latin"],
-  weight: "400",
-  variable: "--font-instrument-serif",
 });
 
 export const metadata: Metadata = {
@@ -25,14 +18,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html
-      lang="es"
-      className={cn(
-        "font-sans",
-        manrope.variable,
-        instrumentSerif.variable,
-      )}
-    >
+    <html lang="es" className={`font-sans ${manrope.variable}`}>
       <body>{children}</body>
     </html>
   );

@@ -1,4 +1,4 @@
-import { ArrowRight } from "lucide-react";
+import { ArrowUpRight, House } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import type { PublicProperty } from "./public-data";
@@ -23,7 +23,7 @@ type PropertyCardProps = {
 export function PropertyCard({ organizationSlug, property }: PropertyCardProps) {
   const details = [
     property.bedrooms !== null
-      ? `${property.bedrooms} ${property.bedrooms === 1 ? "dormitorio" : "dormitorios"}`
+      ? `${property.bedrooms} dorm.`
       : null,
     property.bathrooms !== null
       ? `${property.bathrooms} ${property.bathrooms === 1 ? "baño" : "baños"}`
@@ -35,10 +35,10 @@ export function PropertyCard({ organizationSlug, property }: PropertyCardProps) 
     <article className="public-property-card group min-w-0">
       <Link
         aria-label={`Ver ${property.title} en ${property.city}`}
-        className="block focus-visible:rounded-xl focus-visible:outline-2 focus-visible:outline-offset-4"
+        className="block focus-visible:rounded-lg focus-visible:outline-2 focus-visible:outline-offset-4"
         href={`/${encodeURIComponent(organizationSlug)}/properties/${property.id}`}
       >
-        <div className="relative aspect-[3/2] overflow-hidden rounded-xl bg-[#dedbd3]">
+        <div className="relative aspect-[4/3] overflow-hidden rounded-lg bg-muted">
           {property.coverUrl ? (
             <Image
               alt={`${property.title} en ${property.city}`}
@@ -50,37 +50,37 @@ export function PropertyCard({ organizationSlug, property }: PropertyCardProps) 
           ) : (
             <div
               aria-hidden="true"
-              className="absolute inset-0 flex items-end bg-[#dedbd3] p-6"
+              className="absolute inset-0 flex items-center justify-center bg-muted"
             >
-              <span className="public-display text-5xl text-foreground/25">
-                {property.city.charAt(0)}
-              </span>
+              <House className="size-9 text-foreground/20" strokeWidth={1.4} />
             </div>
           )}
-          <span className="absolute left-3 top-3 rounded-md bg-card/95 px-2.5 py-1.5 text-xs font-semibold text-card-foreground">
-            {operationLabels[property.operationType]}
-          </span>
         </div>
 
-        <div className="border-b border-border py-5">
-          <div className="mb-2 flex items-start justify-between gap-5">
+        <div className="pt-4">
+          <p className="mb-2 text-xs font-semibold tracking-[0.12em] text-muted-foreground uppercase">
+            {operationLabels[property.operationType]}
+          </p>
+          <div className="flex items-start justify-between gap-4">
             <div className="min-w-0">
-              <h3 className="public-display break-words text-pretty text-[1.65rem] leading-[1.1] group-hover:underline group-hover:decoration-1 group-hover:underline-offset-4">
+              <h3 className="public-property-title break-words text-pretty text-xl font-semibold leading-snug tracking-[-0.02em]">
                 {property.title}
               </h3>
-              <p className="mt-2 text-sm text-muted-foreground">{property.city}</p>
             </div>
-            <ArrowRight
-              aria-hidden="true"
-              className="mt-1 size-5 shrink-0"
-              strokeWidth={1.5}
-            />
+            <span className="public-card-arrow mt-1 shrink-0">
+              <ArrowUpRight
+                aria-hidden="true"
+                className="size-[18px]"
+                strokeWidth={1.6}
+              />
+            </span>
           </div>
-          <p className="text-base font-semibold">
+          <p className="mt-3 text-base font-semibold tabular-nums">
             {formatPrice(property.priceAmount, property.currency)}
           </p>
+          <p className="mt-3 text-sm text-muted-foreground">{property.city}</p>
           {details.length > 0 ? (
-            <p className="mt-2 text-sm leading-6 text-muted-foreground">
+            <p className="mt-1.5 text-sm leading-6 text-muted-foreground">
               {details.join(" · ")}
             </p>
           ) : null}
