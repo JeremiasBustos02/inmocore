@@ -9,7 +9,7 @@ import { requireAuthenticatedUserId } from "@/lib/auth";
 import { requireOrganizationMembership } from "@/lib/organizations";
 
 function adminOrganizationPath(organizationSlug: string) {
-  return `/admin/${encodeURIComponent(organizationSlug)}`;
+  return `/admin/${encodeURIComponent(organizationSlug)}/organization`;
 }
 
 export async function updateOrganizationWhatsApp(
@@ -39,6 +39,7 @@ export async function updateOrganizationWhatsApp(
     .where(eq(organizations.id, membership.id));
 
   revalidatePath(`/${encodeURIComponent(organizationSlug)}`);
+  revalidatePath(`/admin/${encodeURIComponent(organizationSlug)}`);
   revalidatePath(adminOrganizationPath(organizationSlug));
   redirect(`${adminOrganizationPath(organizationSlug)}?whatsapp=saved`);
 }

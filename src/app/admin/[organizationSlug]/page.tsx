@@ -1,37 +1,30 @@
-import { count, eq, sql } from "drizzle-orm";
+import { and, count, desc, eq, gte, lt, sql } from "drizzle-orm";
 import {
   Building2,
   CheckCircle2,
   CircleAlert,
-  ExternalLink,
   Eye,
   Home,
   ImageOff,
-  List,
   Plus,
 } from "lucide-react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { logout } from "@/app/auth-actions";
-import { Button, buttonVariants } from "@/components/ui/button";
+import { buttonVariants } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { db } from "@/db";
 import { properties, propertyImages } from "@/db/schema";
 import { requireAuthenticatedUserId } from "@/lib/auth";
 import { requireOrganizationMembership } from "@/lib/organizations";
-import { updateOrganizationWhatsApp } from "./actions";
-import { propertyStatusLabels } from "./properties/property-options";
+import {
+  operationTypeLabels,
+  propertyStatusLabels,
+  propertyTypeLabels,
+} from "./properties/property-options";
 
 type OrganizationPageProps = {
   params: Promise<{ organizationSlug: string }>;
-  searchParams: Promise<{ whatsapp?: string }>;
 };
-
-const roleLabels = {
-  owner: "Propietario",
-  admin: "Administrador",
-  agent: "Agente",
-} as const;
 
 type MetricCardProps = {
   label: string;
@@ -55,12 +48,53 @@ function MetricCard({ label, value, detail, icon: Icon }: MetricCardProps) {
   );
 }
 
+type BarItem = {
+  label: string;
+  value: number;
+};
+
+function DistributionBars({ items, emptyMessage }: { items: BarItem[]; emptyMessage: string }) {
+  const maximum = Math.max(...items.map((item) => item.value), 0);
+
+  if (items.length === 0 || maximum === 0) {
+    return <p className="mt-5 text-sm text-muted-foreground">{emptyMessage}</p>;
+  }
+
+  return (
+    <div className="mt-5 flex flex-col gap-4">
+      {items.map((item) => (
+        <div className="flex flex-col gap-1.5" key={item.label}>
+          <div className="flex items-center justify-between gap-3 text-sm">
+            <span className="truncate">{item.label}</span>
+            <span className="font-semibold tabular-nums">{item.value}</span>
+          </div>
+          <div
+            aria-hidden="true"
+            className="h-2 overflow-hidden rounded-full bg-muted"
+          >
+            <div
+              className="h-full rounded-full bg-primary"
+              style={{ width: `${(item.value / maximum) * 100}%` }}
+            />
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function formatMonth(month: string) {
+  return new Intl.DateTimeFormat("es-AR", {
+    month: "short",
+    timeZone: "UTC",
+  }).format(new Date(`${month}-01T00:00:00Z`));
+}
+
 export default async function OrganizationPage({
   params,
-  searchParams,
 }: OrganizationPageProps) {
   const userId = await requireAuthenticatedUserId();
-  const [{ organizationSlug }, { whatsapp }] = await Promise.all([params, searchParams]);
+  const { organizationSlug } = await params;
   const membership = await requireOrganizationMembership(
     userId,
     organizationSlug,
@@ -70,26 +104,77 @@ export default async function OrganizationPage({
     notFound();
   }
 
-  const [propertyMetrics] = await db
-    .select({
-      total: count(),
-      published: sql<number>`count(*) filter (where ${properties.isPublished})`,
-      unpublished: sql<number>`count(*) filter (where not ${properties.isPublished})`,
-      available: sql<number>`count(*) filter (where ${properties.status} = 'available')`,
-      draft: sql<number>`count(*) filter (where ${properties.status} = 'draft')`,
-      reserved: sql<number>`count(*) filter (where ${properties.status} = 'reserved')`,
-      sold: sql<number>`count(*) filter (where ${properties.status} = 'sold')`,
-      rented: sql<number>`count(*) filter (where ${properties.status} = 'rented')`,
-      archived: sql<number>`count(*) filter (where ${properties.status} = 'archived')`,
-      sale: sql<number>`count(*) filter (where ${properties.operationType} = 'sale')`,
-      rent: sql<number>`count(*) filter (where ${properties.operationType} = 'rent')`,
-      withoutImages: sql<number>`count(*) filter (where not exists (
-        select 1 from ${propertyImages}
-        where ${propertyImages.propertyId} = ${properties.id}
-      ))`,
-    })
-    .from(properties)
-    .where(eq(properties.organizationId, membership.id));
+  const now = new Date();
+  const currentMonthStart = new Date(
+    Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1),
+  );
+  const sixMonthsAgo = new Date(
+    Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - 5, 1),
+  );
+  const nextMonthStart = new Date(
+    Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 1),
+  );
+  const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+
+  const organizationCondition = eq(properties.organizationId, membership.id);
+  const [propertyMetricRows, monthlyCreationRows, typeRows, cityRows] = await Promise.all([
+    db
+      .select({
+        total: count(),
+        published: sql<number>`count(*) filter (where ${properties.isPublished})`,
+        unpublished: sql<number>`count(*) filter (where not ${properties.isPublished})`,
+        available: sql<number>`count(*) filter (where ${properties.status} = 'available')`,
+        draft: sql<number>`count(*) filter (where ${properties.status} = 'draft')`,
+        reserved: sql<number>`count(*) filter (where ${properties.status} = 'reserved')`,
+        sold: sql<number>`count(*) filter (where ${properties.status} = 'sold')`,
+        rented: sql<number>`count(*) filter (where ${properties.status} = 'rented')`,
+        archived: sql<number>`count(*) filter (where ${properties.status} = 'archived')`,
+        sale: sql<number>`count(*) filter (where ${properties.operationType} = 'sale')`,
+        rent: sql<number>`count(*) filter (where ${properties.operationType} = 'rent')`,
+        createdLast30Days: sql<number>`count(*) filter (where ${gte(properties.createdAt, thirtyDaysAgo)})`,
+        withoutImages: sql<number>`count(*) filter (where not exists (
+           select 1 from ${propertyImages}
+           where ${propertyImages.propertyId} = ${properties.id}
+         ))`,
+      })
+      .from(properties)
+      .where(organizationCondition),
+    db
+      .select({
+        month: sql<string>`to_char(date_trunc('month', ${properties.createdAt} at time zone 'UTC'), 'YYYY-MM')`,
+        count: sql<number>`count(*)`,
+      })
+      .from(properties)
+      .where(
+        and(
+          organizationCondition,
+          gte(properties.createdAt, sixMonthsAgo),
+          lt(properties.createdAt, nextMonthStart),
+        ),
+      )
+      .groupBy(sql`date_trunc('month', ${properties.createdAt} at time zone 'UTC')`)
+      .orderBy(sql`date_trunc('month', ${properties.createdAt} at time zone 'UTC')`),
+    db
+      .select({
+        type: properties.propertyType,
+        count: sql<number>`count(*)`,
+      })
+      .from(properties)
+      .where(organizationCondition)
+      .groupBy(properties.propertyType)
+      .orderBy(desc(sql<number>`count(*)`)),
+    db
+      .select({
+        city: properties.city,
+        count: sql<number>`count(*)`,
+      })
+      .from(properties)
+      .where(organizationCondition)
+      .groupBy(properties.city)
+      .orderBy(desc(sql<number>`count(*)`))
+      .limit(6),
+  ]);
+  const [propertyMetrics] = propertyMetricRows;
 
   const metrics = {
     total: Number(propertyMetrics?.total ?? 0),
@@ -103,8 +188,32 @@ export default async function OrganizationPage({
     archived: Number(propertyMetrics?.archived ?? 0),
     sale: Number(propertyMetrics?.sale ?? 0),
     rent: Number(propertyMetrics?.rent ?? 0),
+    createdLast30Days: Number(propertyMetrics?.createdLast30Days ?? 0),
     withoutImages: Number(propertyMetrics?.withoutImages ?? 0),
   };
+
+  const monthlyCreation = Array.from({ length: 6 }, (_, index) => {
+    const monthDate = new Date(
+      Date.UTC(
+        currentMonthStart.getUTCFullYear(),
+        currentMonthStart.getUTCMonth() - (5 - index),
+        1,
+      ),
+    );
+    const month = monthDate.toISOString().slice(0, 7);
+    const row = monthlyCreationRows.find((item) => item.month === month);
+
+    return { label: formatMonth(month), value: Number(row?.count ?? 0) };
+  });
+
+  const typeDistribution = typeRows.map((row) => ({
+    label: propertyTypeLabels[row.type],
+    value: Number(row.count),
+  }));
+  const cityDistribution = cityRows.map((row) => ({
+    label: row.city,
+    value: Number(row.count),
+  }));
 
   const propertiesHref = `/admin/${encodeURIComponent(organizationSlug)}/properties`;
 
@@ -112,19 +221,8 @@ export default async function OrganizationPage({
     <main className="mx-auto flex min-h-screen w-full max-w-7xl flex-col gap-8 px-4 py-8 sm:px-6">
       <header className="flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
         <div className="flex flex-col gap-2">
-          <p className="text-sm text-muted-foreground">Panel de administración</p>
-          <h1 className="text-3xl font-semibold tracking-tight">{membership.name}</h1>
-          <p className="text-sm text-muted-foreground">
-            {roleLabels[membership.role]} · Resumen de propiedades
-          </p>
-        </div>
-        <div className="flex flex-wrap gap-2">
-          <Link className={buttonVariants({ variant: "outline" })} href={`/${encodeURIComponent(organizationSlug)}`}>
-            <ExternalLink data-icon="inline-start" /> Ver sitio público
-          </Link>
-          <form action={logout}>
-            <Button variant="outline" type="submit">Cerrar sesión</Button>
-          </form>
+          <h1 className="text-3xl font-semibold tracking-tight">Dashboard</h1>
+          <p className="text-sm text-muted-foreground">Resumen general de tu inmobiliaria.</p>
         </div>
       </header>
 
@@ -134,9 +232,6 @@ export default async function OrganizationPage({
             <h2 className="text-lg font-semibold" id="metrics-title">Vista general</h2>
             <p className="mt-1 text-sm text-muted-foreground">Indicadores actuales de tu inventario.</p>
           </div>
-          <Link className={buttonVariants({ variant: "ghost", size: "sm" })} href={propertiesHref}>
-            <List data-icon="inline-start" /> Ver todas
-          </Link>
         </div>
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
           <MetricCard icon={Building2} label="Propiedades totales" value={metrics.total} />
@@ -180,9 +275,6 @@ export default async function OrganizationPage({
             <Link className={buttonVariants({ variant: "default" })} href={`${propertiesHref}/new`}>
               <Plus data-icon="inline-start" /> Nueva propiedad
             </Link>
-            <Link className={buttonVariants({ variant: "outline" })} href={propertiesHref}>
-              <List data-icon="inline-start" /> Ver propiedades
-            </Link>
           </div>
           {metrics.withoutImages > 0 ? (
             <p className="mt-5 flex items-start gap-2 text-sm text-muted-foreground">
@@ -195,40 +287,69 @@ export default async function OrganizationPage({
         </section>
       </div>
 
-      {membership.role === "owner" || membership.role === "admin" ? (
-        <section className="rounded-xl border bg-card p-6" aria-labelledby="whatsapp-title">
-            <h2 className="text-xl font-semibold" id="whatsapp-title">
-              Contacto por WhatsApp
-            </h2>
-            <p className="mt-2 text-sm leading-6 text-muted-foreground">
-              Guardá el número en formato internacional, sólo con dígitos. Ejemplo: 5492266XXXXXX.
-            </p>
-            <form action={updateOrganizationWhatsApp.bind(null, organizationSlug)} className="mt-5 flex flex-col gap-3 sm:flex-row sm:items-end">
-              <div className="w-full sm:max-w-sm">
-                <label className="text-sm font-medium" htmlFor="whatsappPhone">
-                  Número de WhatsApp
-                </label>
-                <input
-                  autoComplete="tel"
-                  className="mt-2 h-10 w-full rounded-lg border border-input bg-transparent px-3 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
-                  defaultValue={membership.whatsappPhone ?? ""}
-                  id="whatsappPhone"
-                  inputMode="tel"
-                  maxLength={20}
-                  name="whatsappPhone"
-                  placeholder="5492266XXXXXX"
-                  type="tel"
-                />
+      <section aria-labelledby="trends-title">
+        <div className="mb-4">
+          <h2 className="text-lg font-semibold" id="trends-title">Evolución y composición</h2>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Incorporación y distribución actual del inventario. Los estados no representan historial.
+          </p>
+        </div>
+        <div className="grid gap-6 lg:grid-cols-[minmax(0,1.25fr)_minmax(18rem,0.75fr)]">
+          <section className="rounded-xl border bg-card p-5" aria-labelledby="creation-title">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <h3 className="text-lg font-semibold" id="creation-title">Nuevas propiedades</h3>
+                <p className="mt-1 text-sm text-muted-foreground">Altas por mes, últimos seis meses.</p>
               </div>
-              <Button type="submit">Guardar número</Button>
-            </form>
-            {whatsapp === "saved" ? (
-              <p className="mt-3 text-sm text-muted-foreground" role="status">Número actualizado.</p>
-            ) : whatsapp === "invalid" ? (
-              <p className="mt-3 text-sm text-destructive" role="alert">Ingresá entre 8 y 15 dígitos.</p>
-            ) : null}
+              <Badge variant="secondary">{metrics.createdLast30Days} últimos 30 días</Badge>
+            </div>
+            <div className="mt-6 grid min-h-48 grid-cols-6 items-end gap-2 sm:gap-4" role="img" aria-label="Propiedades creadas por mes en los últimos seis meses">
+              {monthlyCreation.map((month) => {
+                const maximum = Math.max(...monthlyCreation.map((item) => item.value), 1);
+                const height = month.value === 0 ? 4 : Math.max((month.value / maximum) * 100, 8);
+
+                return (
+                  <div className="flex h-48 min-w-0 flex-col items-center justify-end gap-2" key={month.label}>
+                    <span className="text-sm font-semibold tabular-nums">{month.value}</span>
+                    <div className="flex h-32 w-full items-end rounded-md bg-muted/60" aria-hidden="true">
+                      <div className="w-full rounded-md bg-primary" style={{ height: `${height}%` }} />
+                    </div>
+                    <span className="text-center text-xs text-muted-foreground">{month.label}</span>
+                  </div>
+                );
+              })}
+            </div>
+          </section>
+
+          <section className="rounded-xl border bg-card p-5" aria-labelledby="operation-title">
+            <div>
+              <h3 className="text-lg font-semibold" id="operation-title">Por operación</h3>
+              <p className="mt-1 text-sm text-muted-foreground">Composición actual del inventario.</p>
+            </div>
+            <DistributionBars
+              emptyMessage="Todavía no hay propiedades para distribuir."
+              items={[
+                { label: operationTypeLabels.sale, value: metrics.sale },
+                { label: operationTypeLabels.rent, value: metrics.rent },
+              ]}
+            />
+          </section>
+        </div>
+      </section>
+
+      <section className="grid gap-6 lg:grid-cols-2" aria-label="Distribución por tipo y localidad">
+        <section className="rounded-xl border bg-card p-5" aria-labelledby="type-title">
+          <h3 className="text-lg font-semibold" id="type-title">Por tipo</h3>
+          <p className="mt-1 text-sm text-muted-foreground">Qué clases de propiedades concentran la oferta.</p>
+          <DistributionBars emptyMessage="Todavía no hay propiedades para distribuir." items={typeDistribution} />
         </section>
-      ) : null}
+        <section className="rounded-xl border bg-card p-5" aria-labelledby="city-title">
+          <h3 className="text-lg font-semibold" id="city-title">Por localidad</h3>
+          <p className="mt-1 text-sm text-muted-foreground">Las seis localidades con más propiedades.</p>
+          <DistributionBars emptyMessage="Todavía no hay localidades para mostrar." items={cityDistribution} />
+        </section>
+      </section>
+
     </main>
   );
 }

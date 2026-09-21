@@ -107,8 +107,14 @@ export default async function PropertiesPage({
             {membership.name}
           </Link>
           <h1 className="text-3xl font-semibold tracking-tight">Propiedades</h1>
+          <p className="text-sm text-muted-foreground">Administrá el inventario de la organización.</p>
         </div>
-        <Link className={buttonVariants()} href={`${propertiesHref}/new`}>Nueva propiedad</Link>
+         <div className="flex flex-wrap gap-2">
+           {membership.role === "owner" || membership.role === "admin" ? (
+             <Link className={buttonVariants({ variant: "outline" })} href={`${propertiesHref}/import`}>Importar Excel</Link>
+           ) : null}
+           <Link className={buttonVariants()} href={`${propertiesHref}/new`}>Nueva propiedad</Link>
+         </div>
       </header>
 
       <form className="grid gap-3 rounded-xl border bg-card p-4 md:grid-cols-[minmax(0,1fr)_180px_180px_auto]" method="get">

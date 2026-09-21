@@ -59,8 +59,9 @@ export default async function EditPropertyPage({ params, searchParams }: EditPro
   return (
     <main className="mx-auto flex min-h-screen w-full max-w-4xl flex-col gap-8 px-4 py-8 sm:px-6">
       <header className="flex flex-col gap-2">
-        <p className="text-sm text-muted-foreground">{membership.name}</p>
-        <h1 className="text-3xl font-semibold tracking-tight">Editar propiedad</h1>
+          <p className="text-sm text-muted-foreground">{membership.name}</p>
+          <h1 className="text-3xl font-semibold tracking-tight">Editar propiedad</h1>
+          <p className="text-sm text-muted-foreground">Actualizá los datos y las imágenes de la propiedad.</p>
       </header>
       <PropertyForm action={updateAction} cancelHref={propertiesHref} error={error} initialValues={property} submitLabel="Guardar cambios" />
       <PropertyImages
