@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { ArrowLeft, House } from "lucide-react";
+import { ArrowLeft, House, MessageCircle } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import { notFound } from "next/navigation";
@@ -100,6 +100,14 @@ export default async function PublicPropertyPage({ params }: PublicPropertyPageP
     property.country !== "Argentina" ? property.country : null,
   ].filter((value): value is string => Boolean(value));
   const [mainImage, ...secondaryImages] = property.images;
+  const whatsappMessage = `Hola, quisiera consultar por la propiedad "${property.title}"${property.city ? ` en ${property.city}` : ""} (Ref. ${property.reference}).`;
+  const whatsappHref = organization.whatsappPhone
+    ? `https://wa.me/${organization.whatsappPhone}?text=${encodeURIComponent(whatsappMessage)}`
+    : null;
+  const whatsappCtaClass = "public-button inline-flex min-h-12 w-full items-center justify-center gap-2.5 rounded-xl bg-primary px-5 text-center text-sm font-semibold tracking-[-0.01em] text-primary-foreground shadow-sm transition-[background-color,box-shadow,transform] duration-200 ease-out hover:-translate-y-0.5 hover:bg-primary/90 hover:shadow-md focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring active:translate-y-0 md:w-auto";
+  const contactTitle = "¿Te interesa esta propiedad?";
+  const contactDescription = "Contactanos por WhatsApp y te ayudamos con cualquier consulta.";
+  const contactNote = "Contacto directo con la inmobiliaria.";
 
   return (
     <div className="public-site flex min-h-screen flex-col overflow-x-hidden">
@@ -178,9 +186,22 @@ export default async function PublicPropertyPage({ params }: PublicPropertyPageP
                 {[property.address, property.city].filter(Boolean).join(", ")}
               </p>
             </div>
-            <p className="text-[clamp(1.75rem,3vw,2.5rem)] font-semibold leading-none tracking-[-0.035em] tabular-nums md:pb-1 md:text-right">
-              {formatPublicPrice(property.priceAmount, property.currency)}
-            </p>
+            <div className="min-w-0 md:flex md:min-w-[220px] md:flex-col md:items-end md:gap-5">
+              <p className="text-[clamp(1.75rem,3vw,2.5rem)] font-semibold leading-none tracking-[-0.035em] tabular-nums md:pb-1 md:text-right">
+                {formatPublicPrice(property.priceAmount, property.currency)}
+              </p>
+              {whatsappHref ? (
+                <a
+                  className={`${whatsappCtaClass} mt-6 hidden md:mt-0 md:inline-flex`}
+                  href={whatsappHref}
+                  rel="noopener noreferrer"
+                  target="_blank"
+                >
+                  <MessageCircle aria-hidden="true" className="size-[18px]" strokeWidth={1.8} />
+                  Consultar por WhatsApp
+                </a>
+              ) : null}
+            </div>
           </header>
 
           {features.length > 0 ? (
@@ -219,6 +240,36 @@ export default async function PublicPropertyPage({ params }: PublicPropertyPageP
               <p className="mt-7 text-sm text-muted-foreground">Ref. {property.reference}</p>
             </aside>
           </div>
+
+          {whatsappHref ? (
+            <section
+              aria-labelledby="final-contact-title"
+              className="mt-10 rounded-2xl border border-border bg-muted/45 px-5 py-8 sm:px-8"
+            >
+              <p className="text-sm font-semibold text-muted-foreground">Contacto directo</p>
+              <h2
+                className="mt-3 text-2xl font-semibold tracking-[-0.025em]"
+                id="final-contact-title"
+              >
+                {contactTitle}
+              </h2>
+              <p className="mt-3 max-w-md text-base leading-7 text-muted-foreground">
+                {contactDescription}
+              </p>
+              <a
+                className={`${whatsappCtaClass} mt-6`}
+                href={whatsappHref}
+                rel="noopener noreferrer"
+                target="_blank"
+              >
+                <MessageCircle aria-hidden="true" className="size-[18px]" strokeWidth={1.8} />
+                Consultar por WhatsApp
+              </a>
+              <p className="mt-3 text-xs text-muted-foreground">
+                {contactNote}
+              </p>
+            </section>
+          ) : null}
         </article>
       </main>
       <PublicFooter organizationName={organization.name} organizationSlug={organization.slug} />

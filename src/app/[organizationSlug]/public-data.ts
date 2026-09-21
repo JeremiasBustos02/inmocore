@@ -147,7 +147,12 @@ export function publicFiltersToSearchParams(
 
 export const getPublicOrganization = cache(async (organizationSlug: string) => {
   const [organization] = await db
-    .select({ id: organizations.id, name: organizations.name, slug: organizations.slug })
+    .select({
+      id: organizations.id,
+      name: organizations.name,
+      slug: organizations.slug,
+      whatsappPhone: organizations.whatsappPhone,
+    })
     .from(organizations)
     .where(eq(organizations.slug, organizationSlug))
     .limit(1);

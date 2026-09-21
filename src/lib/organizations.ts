@@ -28,6 +28,7 @@ export async function requireOrganizationMembership(
       id: organizations.id,
       name: organizations.name,
       slug: organizations.slug,
+      whatsappPhone: organizations.whatsappPhone,
       role: memberships.role,
     })
     .from(memberships)
