@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { ArrowRight, Handshake, MapPin, MessageCircle, ShieldCheck } from "lucide-react";
+import { ArrowRight, Mail, MapPin, MessageCircle, Phone } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import { notFound } from "next/navigation";
@@ -57,19 +57,16 @@ const propertyTypes = [
 
 const benefits = [
   {
-    title: "Conocimiento Local",
-    description: "Profundo conocimiento del mercado inmobiliario de la región y alrededores.",
-    icon: MapPin,
+    title: "Conocemos la zona",
+    description: "Conocemos el mercado inmobiliario de la región y sus alrededores.",
   },
   {
-    title: "Atención Personalizada",
-    description: "Te acompañamos en todo el proceso, desde la búsqueda hasta la escrituración.",
-    icon: Handshake,
+    title: "Te acompañamos",
+    description: "Estamos presentes desde la primera visita hasta la firma.",
   },
   {
-    title: "Transparencia Total",
-    description: "Información clara y transparente en todas nuestras operaciones.",
-    icon: ShieldCheck,
+    title: "Hablamos claro",
+    description: "Información simple y transparente para que puedas decidir tranquilo.",
   },
 ];
 
@@ -98,7 +95,7 @@ export default async function PublicHomePage({ params }: PublicHomePageProps) {
       <main id="contenido-principal">
         <section
           aria-labelledby="hero-title"
-          className="relative min-h-[510px] overflow-visible bg-muted pb-10 sm:min-h-[560px] lg:min-h-[540px]"
+          className="relative min-h-[480px] overflow-visible bg-muted pb-6 sm:min-h-[520px] sm:pb-8 lg:min-h-[500px]"
         >
           <div className="absolute inset-0 overflow-hidden">
             {heroImageUrl ? (
@@ -117,7 +114,7 @@ export default async function PublicHomePage({ params }: PublicHomePageProps) {
             className={`absolute inset-0 ${heroImageUrl ? "bg-black/45" : "bg-black/5"}`}
           />
           <div
-            className={`relative mx-auto flex w-full max-w-[1320px] flex-col items-center px-5 pt-20 text-center sm:px-8 sm:pt-24 lg:px-10 lg:pt-28 ${heroProperty ? "text-white" : "text-foreground"}`}
+            className={`relative mx-auto flex w-full max-w-[1320px] flex-col items-center px-5 pt-16 text-center sm:px-8 sm:pt-20 lg:px-10 lg:pt-24 ${heroProperty ? "text-white" : "text-foreground"}`}
           >
             <h1
               className="w-full max-w-4xl text-balance text-[clamp(2.45rem,5vw,4.5rem)] font-semibold leading-[1.04] tracking-[-0.04em]"
@@ -136,7 +133,7 @@ export default async function PublicHomePage({ params }: PublicHomePageProps) {
 
         <section
           aria-labelledby="featured-title"
-          className="mx-auto w-full max-w-[1320px] scroll-mt-6 px-5 py-16 sm:px-8 sm:py-20 lg:px-10 lg:py-24"
+          className="mx-auto w-full max-w-[1320px] scroll-mt-6 px-5 pb-16 pt-14 sm:px-8 sm:pb-20 sm:pt-16 lg:px-10 lg:pb-20 lg:pt-20"
           id="propiedades"
         >
           <div className="mb-9 flex flex-col gap-5 border-b border-border pb-7 sm:flex-row sm:items-end sm:justify-between">
@@ -180,15 +177,15 @@ export default async function PublicHomePage({ params }: PublicHomePageProps) {
           )}
         </section>
 
-        <section className="border-y border-border bg-muted">
-          <div className="mx-auto w-full max-w-[1320px] px-5 py-16 sm:px-8 sm:py-20 lg:px-10">
+        <section className="border-t border-border bg-muted">
+          <div className="mx-auto w-full max-w-[1320px] px-5 py-14 sm:px-8 sm:py-16 lg:px-10 lg:py-20">
             <h2 className="text-balance text-3xl font-semibold tracking-[-0.03em] sm:text-4xl">
               Explorar por tipo
             </h2>
             <div className="mt-8 grid border-t border-l border-border sm:grid-cols-2">
               {propertyTypes.map((type) => (
                 <Link
-                  className="group flex min-h-20 items-center justify-between border-r border-b border-border bg-background px-5 text-base font-semibold hover:bg-[#fafafa] focus-visible:outline-2 focus-visible:outline-offset-[-2px] sm:px-6"
+                  className="group flex min-h-20 items-center justify-between border-r border-b border-border bg-background px-5 text-base font-semibold hover:bg-background focus-visible:outline-2 focus-visible:outline-offset-[-2px] sm:px-6"
                   href={`${homeHref}/properties?type=${type.value}`}
                   key={type.value}
                 >
@@ -202,21 +199,19 @@ export default async function PublicHomePage({ params }: PublicHomePageProps) {
           </div>
         </section>
 
-        <section className="border-y border-border bg-muted" id="estudio">
-          <div className="mx-auto w-full max-w-[1320px] px-5 py-16 sm:px-8 sm:py-20 lg:px-10">
-            <div className="grid gap-8 md:grid-cols-[.8fr_1.2fr] md:items-end">
-              <h2 className="text-balance text-3xl font-semibold tracking-[-0.03em] sm:text-4xl">
-                ¿Por qué elegir {organization.name}?
+        <section aria-labelledby="estudio-title" className="scroll-mt-6 border-t border-border bg-muted" id="estudio">
+          <div className="mx-auto grid w-full max-w-[1320px] gap-16 px-5 py-16 sm:px-8 sm:py-20 md:grid-cols-[1.15fr_.85fr] md:gap-20 lg:gap-32 lg:px-10 lg:py-24">
+            <div className="max-w-2xl">
+              <p className="text-xs font-semibold tracking-[0.22em] text-primary/70">¿POR QUÉ ELEGIRNOS?</p>
+              <h2 className="mt-6 text-balance text-[clamp(2.6rem,5.4vw,5.25rem)] font-semibold leading-[1.02] tracking-[-0.055em]" id="estudio-title">
+                Conocemos la zona. Te acompañamos. Hablamos claro.
               </h2>
-              <p className="max-w-2xl text-pretty text-lg leading-8 text-foreground/75 md:justify-self-end md:text-xl">
-                Con años de experiencia en el mercado inmobiliario de la región, te brindamos un servicio personalizado y profesional para que encuentres exactamente lo que buscás.
-              </p>
             </div>
-            <div className="mt-12 grid border-t border-border md:grid-cols-3">
-              {benefits.map(({ title, description, icon: Icon }) => (
-                <article className="border-b border-border py-7 md:border-b-0 md:border-r md:px-7 md:first:pl-0 md:last:border-r-0 md:last:pr-0" key={title}>
-                  <Icon aria-hidden="true" className="size-6 text-primary" strokeWidth={1.7} />
-                  <h3 className="mt-5 text-balance text-lg font-semibold">{title}</h3>
+
+            <div className="md:pt-3">
+              {benefits.map(({ title, description }, index) => (
+                <article className={`py-7 ${index > 0 ? "border-t border-border" : ""}`} key={title}>
+                  <h3 className="text-xl font-semibold tracking-[-0.025em]">{title}</h3>
                   <p className="mt-3 max-w-sm text-sm leading-6 text-muted-foreground">{description}</p>
                 </article>
               ))}
@@ -224,21 +219,72 @@ export default async function PublicHomePage({ params }: PublicHomePageProps) {
           </div>
         </section>
 
-        <section className="scroll-mt-6 bg-primary text-primary-foreground" id="contacto">
-          <div className="mx-auto grid w-full max-w-[1320px] gap-10 px-5 py-16 sm:px-8 sm:py-20 md:grid-cols-[1.1fr_.9fr] md:items-end lg:px-10">
-            <div>
-              <h2 className="max-w-2xl text-balance text-[clamp(2rem,4vw,3.5rem)] font-semibold leading-tight tracking-[-0.04em]">Contactanos</h2>
-              <p className="mt-4 max-w-xl text-base leading-7 text-primary-foreground/75">Escribinos y te ayudamos a encontrar lo que estás buscando.</p>
-              <div className="mt-8 flex flex-col gap-3 text-sm text-primary-foreground/85">
-                {organization.contactAddress ? <p>{organization.contactAddress}</p> : null}
-                {organization.contactPhone ? <a className="w-fit hover:underline" href={`tel:${organization.contactPhone}`}>{organization.contactPhone}</a> : null}
-                {organization.contactEmail ? <a className="w-fit hover:underline" href={`mailto:${organization.contactEmail}`}>{organization.contactEmail}</a> : null}
-              </div>
-            </div>
-            {organization.whatsappPhone ? <a className="inline-flex min-h-12 w-fit items-center gap-2.5 rounded-xl bg-background px-5 text-sm font-semibold text-foreground shadow-sm transition-transform duration-200 hover:-translate-y-0.5 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-background md:justify-self-end" href={`https://wa.me/${organization.whatsappPhone}`} rel="noopener noreferrer" target="_blank"><MessageCircle aria-hidden="true" className="size-[18px]" strokeWidth={1.8} />Escribinos por WhatsApp</a> : null}
-          </div>
-        </section>
-      </main>
+         <section aria-labelledby="contact-title" className="scroll-mt-6 border-t border-border bg-muted" id="contacto">
+           <div className="mx-auto w-full max-w-[1320px] px-5 py-16 sm:px-8 sm:py-20 lg:px-10 lg:py-24">
+             <div className="max-w-2xl">
+               <p className="text-xs font-semibold tracking-[0.24em] text-muted-foreground">HABLEMOS</p>
+               <h2 className="mt-5 text-balance text-[clamp(2.25rem,4.5vw,4.25rem)] font-semibold leading-[1.04] tracking-[-0.045em]" id="contact-title">
+                 ¿Buscás una propiedad?
+               </h2>
+               <p className="mt-5 text-lg leading-8 text-foreground/70 sm:text-xl">Estamos para ayudarte a encontrarla.</p>
+             </div>
+
+             <div className="mt-14 grid border-y border-border md:grid-cols-3">
+               {organization.contactAddress ? (
+                 <a
+                   className="group flex min-h-28 items-center gap-4 border-b border-border py-7 transition-colors duration-200 hover:text-primary focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-primary md:border-b-0 md:pr-8"
+                   href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(organization.contactAddress)}`}
+                   rel="noopener noreferrer"
+                   target="_blank"
+                 >
+                   <MapPin aria-hidden="true" className="size-5 shrink-0 text-primary transition-transform duration-200 group-hover:-translate-y-0.5" strokeWidth={1.6} />
+                   <span className="min-w-0">
+                     <span className="block text-[11px] font-semibold tracking-[0.2em] text-muted-foreground">VISITANOS</span>
+                     <span className="mt-2 block text-base font-medium leading-6 break-words">{organization.contactAddress}</span>
+                   </span>
+                 </a>
+               ) : null}
+               {organization.contactPhone ? (
+                 <a
+                   className="group flex min-h-28 items-center gap-4 border-b border-border py-7 transition-colors duration-200 hover:text-primary focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-primary md:border-b-0 md:border-l md:px-8"
+                   href={`tel:${organization.contactPhone}`}
+                 >
+                   <Phone aria-hidden="true" className="size-5 shrink-0 text-primary transition-transform duration-200 group-hover:translate-x-0.5" strokeWidth={1.6} />
+                   <span className="min-w-0">
+                     <span className="block text-[11px] font-semibold tracking-[0.2em] text-muted-foreground">LLAMANOS</span>
+                     <span className="mt-2 block text-base font-medium leading-6 break-words">{organization.contactPhone}</span>
+                   </span>
+                 </a>
+               ) : null}
+               {organization.contactEmail ? (
+                 <a
+                   className="group flex min-h-28 items-center gap-4 py-7 transition-colors duration-200 hover:text-primary focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-primary md:border-l md:pl-8"
+                   href={`mailto:${organization.contactEmail}`}
+                 >
+                   <Mail aria-hidden="true" className="size-5 shrink-0 text-primary transition-transform duration-200 group-hover:translate-x-0.5" strokeWidth={1.6} />
+                   <span className="min-w-0">
+                     <span className="block text-[11px] font-semibold tracking-[0.2em] text-muted-foreground">ESCRIBINOS</span>
+                     <span className="mt-2 block text-base font-medium leading-6 break-all">{organization.contactEmail}</span>
+                   </span>
+                 </a>
+               ) : null}
+             </div>
+
+             {organization.whatsappPhone ? (
+               <a
+                 className="group mt-12 inline-flex min-h-14 w-full items-center justify-center gap-3 rounded-md bg-primary px-6 text-sm font-semibold text-primary-foreground transition-[background-color,transform] duration-200 hover:-translate-y-0.5 hover:bg-primary/90 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-primary sm:w-fit"
+                 href={`https://wa.me/${organization.whatsappPhone}`}
+                 rel="noopener noreferrer"
+                 target="_blank"
+               >
+                 <MessageCircle aria-hidden="true" className="size-[18px]" strokeWidth={1.8} />
+                 <span>Escribinos por WhatsApp</span>
+                 <ArrowRight aria-hidden="true" className="size-4 transition-transform duration-200 group-hover:translate-x-1" />
+               </a>
+             ) : null}
+           </div>
+         </section>
+       </main>
 
        <PublicFooter
         contactAddress={organization.contactAddress}
