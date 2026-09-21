@@ -17,9 +17,9 @@ import type { PublicPropertyFilters } from "../public-data";
 import { publicPropertyTypeOptions } from "../public-property-options";
 
 const selectClassName =
-  "!h-[52px] w-full min-w-0 rounded-[10px] border-border bg-card px-4 text-[15px] font-normal";
+  "!h-[52px] w-full min-w-0 rounded-lg border-border bg-card px-4 text-[15px] font-normal";
 const inputClassName =
-  "h-[52px] rounded-[10px] border-border bg-card px-4 text-[15px] font-normal";
+  "h-[52px] rounded-lg border-border bg-card px-4 text-[15px] font-normal";
 
 const operationOptions = [
   { value: "sale", label: "Comprar" },
@@ -91,7 +91,7 @@ export function CatalogFilters({
     <form
       action={`/${encodeURIComponent(organizationSlug)}/properties`}
       autoComplete="off"
-      className="rounded-xl border border-border bg-card p-4 sm:p-5"
+      className="rounded-lg border border-border bg-muted/45 p-4 sm:p-5"
       method="get"
     >
       <FieldGroup className="grid min-w-0 gap-4 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-7">
@@ -171,13 +171,13 @@ export function CatalogFilters({
       ) : null}
 
       <div className="mt-5 flex flex-col gap-3 sm:flex-row sm:justify-end">
-        <Button className="h-11 rounded-[10px] px-5" type="submit">
+        <Button className="h-11 rounded-lg px-5" type="submit">
           <Search data-icon="inline-start" />
           Aplicar filtros
         </Button>
         <Link
           className={buttonVariants({
-            className: "h-11 rounded-[10px] px-5",
+            className: "h-11 rounded-lg px-5",
             variant: "outline",
           })}
           href={`/${encodeURIComponent(organizationSlug)}/properties`}
@@ -225,7 +225,7 @@ export function CatalogSort({ filters }: CatalogSortProps) {
         >
           <SelectTrigger
             aria-label="Ordenar por"
-            className="!h-11 w-full rounded-[10px] px-3"
+            className="!h-11 w-full rounded-lg px-3"
             id="catalog-sort"
           >
             <SelectValue />
@@ -239,7 +239,7 @@ export function CatalogSort({ filters }: CatalogSortProps) {
           </SelectContent>
         </Select>
       </Field>
-      <Button className="h-11 rounded-[10px] px-4" type="submit" variant="outline">
+      <Button className="h-11 rounded-lg px-4" type="submit" variant="outline">
         Ordenar
       </Button>
     </form>

@@ -17,7 +17,7 @@ type PropertySearchProps = {
 };
 
 const fieldClassName =
-  "!h-[52px] w-full min-w-0 rounded-[10px] border border-[#e5e5e5] bg-card px-4 text-[15px] font-normal text-foreground outline-none transition-[border-color,box-shadow] duration-200 focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/20";
+  "!h-[52px] w-full min-w-0 rounded-lg border-border bg-card px-4 text-[15px] font-normal text-foreground outline-none transition-[border-color,box-shadow] duration-200 focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/20";
 
 // Currency-aware price ranges belong to the complete catalog filters in M4B.
 const priceRanges = [
@@ -47,7 +47,7 @@ export function PropertySearch({ cities, organizationSlug }: PropertySearchProps
               type="radio"
               value="sale"
             />
-            <span className="flex h-11 items-center rounded-t-[10px] bg-black/55 px-6 text-sm font-semibold text-white transition-colors hover:bg-black/65 peer-checked:bg-card peer-checked:text-brand-accent peer-checked:hover:bg-card peer-focus-visible:outline-2 peer-focus-visible:outline-offset-[-3px]">
+            <span className="flex h-11 items-center rounded-t-lg bg-black/55 px-6 text-sm font-semibold text-white transition-colors hover:bg-black/65 peer-checked:bg-card peer-checked:text-brand-accent peer-checked:hover:bg-card peer-focus-visible:outline-2 peer-focus-visible:outline-offset-[-3px]">
               Comprar
             </span>
           </label>
@@ -58,14 +58,14 @@ export function PropertySearch({ cities, organizationSlug }: PropertySearchProps
               type="radio"
               value="rent"
             />
-            <span className="flex h-11 items-center rounded-t-[10px] bg-black/55 px-6 text-sm font-semibold text-white transition-colors hover:bg-black/65 peer-checked:bg-card peer-checked:text-brand-accent peer-checked:hover:bg-card peer-focus-visible:outline-2 peer-focus-visible:outline-offset-[-3px]">
+            <span className="flex h-11 items-center rounded-t-lg bg-black/55 px-6 text-sm font-semibold text-white transition-colors hover:bg-black/65 peer-checked:bg-card peer-checked:text-brand-accent peer-checked:hover:bg-card peer-focus-visible:outline-2 peer-focus-visible:outline-offset-[-3px]">
               Alquilar
             </span>
           </label>
         </div>
       </fieldset>
 
-      <div className="grid min-w-0 gap-3 rounded-b-xl rounded-tr-xl bg-card p-4 shadow-[0_8px_24px_rgba(0,0,0,0.08)] sm:grid-cols-2 sm:p-5 lg:grid-cols-[1.15fr_1.2fr_1.1fr_190px] lg:items-center">
+      <div className="grid min-w-0 gap-3 rounded-b-lg rounded-tr-lg bg-card p-4 shadow-[0_8px_24px_rgba(0,0,0,0.08)] sm:grid-cols-2 sm:p-5 lg:grid-cols-[1.15fr_1.2fr_1.1fr_190px] lg:items-center">
         <label className="min-w-0">
           <span className="sr-only">Tipo de propiedad</span>
           <Select
@@ -154,7 +154,7 @@ export function PropertySearch({ cities, organizationSlug }: PropertySearchProps
         </label>
 
         <button
-          className="public-button flex h-[52px] w-full items-center justify-center gap-2 rounded-[10px] bg-primary px-6 text-sm font-semibold text-primary-foreground hover:bg-primary/90 focus-visible:outline-2 focus-visible:outline-offset-2 sm:col-span-2 lg:col-span-1"
+          className="public-button flex h-[52px] w-full items-center justify-center gap-2 rounded-lg bg-primary px-6 text-sm font-semibold text-primary-foreground hover:bg-primary/90 focus-visible:outline-2 focus-visible:outline-offset-2 sm:col-span-2 lg:col-span-1"
           type="submit"
         >
           <Search aria-hidden="true" className="size-[18px]" strokeWidth={1.8} />

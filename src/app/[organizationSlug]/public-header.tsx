@@ -51,7 +51,7 @@ export function PublicHeader({
               </Link>
             ))}
           </nav>
-          <Link className="rounded-md border border-border px-3.5 py-2 text-sm font-medium text-foreground/75 transition-colors hover:border-foreground/30 hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-2" href="/login">
+          <Link className="rounded-lg border border-border px-3.5 py-2 text-sm font-medium text-foreground/75 transition-colors hover:border-foreground/30 hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-2" href="/login">
             Acceso
           </Link>
         </div>

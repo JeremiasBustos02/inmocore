@@ -272,7 +272,7 @@ export default async function PublicHomePage({ params }: PublicHomePageProps) {
 
              {organization.whatsappPhone ? (
                <a
-                 className="group mt-12 inline-flex min-h-14 w-full items-center justify-center gap-3 rounded-md bg-primary px-6 text-sm font-semibold text-primary-foreground transition-[background-color,transform] duration-200 hover:-translate-y-0.5 hover:bg-primary/90 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-primary sm:w-fit"
+                 className="group mt-12 inline-flex min-h-14 w-full items-center justify-center gap-3 rounded-lg bg-primary px-6 text-sm font-semibold text-primary-foreground transition-[background-color,transform] duration-200 hover:-translate-y-0.5 hover:bg-primary/90 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-primary sm:w-fit"
                  href={`https://wa.me/${organization.whatsappPhone}`}
                  rel="noopener noreferrer"
                  target="_blank"

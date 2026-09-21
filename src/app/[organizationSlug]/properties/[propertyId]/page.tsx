@@ -112,7 +112,7 @@ export default async function PublicPropertyPage({ params }: PublicPropertyPageP
   const whatsappHref = organization.whatsappPhone
     ? `https://wa.me/${organization.whatsappPhone}?text=${encodeURIComponent(whatsappMessage)}`
     : null;
-  const whatsappCtaClass = "public-button inline-flex min-h-12 w-full items-center justify-center gap-2.5 rounded-xl bg-primary px-5 text-center text-sm font-semibold tracking-[-0.01em] text-primary-foreground shadow-sm transition-[background-color,box-shadow,transform] duration-200 ease-out hover:-translate-y-0.5 hover:bg-primary/90 hover:shadow-md focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring active:translate-y-0 md:w-auto";
+  const whatsappCtaClass = "public-button inline-flex min-h-12 w-full items-center justify-center gap-2.5 rounded-lg bg-primary px-5 text-center text-sm font-semibold tracking-[-0.01em] text-primary-foreground transition-[background-color,transform] duration-200 ease-out hover:-translate-y-0.5 hover:bg-primary/90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring active:translate-y-0 md:w-auto";
   const contactTitle = "¿Te interesa esta propiedad?";
   const contactDescription = "Contactanos por WhatsApp y te ayudamos con cualquier consulta.";
   const contactNote = "Contacto directo con la inmobiliaria.";
@@ -201,7 +201,7 @@ export default async function PublicPropertyPage({ params }: PublicPropertyPageP
           {whatsappHref ? (
             <section
               aria-labelledby="final-contact-title"
-              className="mt-10 rounded-2xl border border-border bg-muted/45 px-5 py-8 sm:px-8"
+              className="mt-12 border-y border-border py-10 sm:py-12"
             >
               <p className="text-sm font-semibold text-muted-foreground">Contacto directo</p>
               <h2

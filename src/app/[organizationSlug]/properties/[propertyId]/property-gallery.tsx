@@ -56,7 +56,7 @@ export function PropertyGallery({ images, propertyTitle, city }: PropertyGallery
 
   if (images.length === 0) {
     return (
-      <div className="flex aspect-[4/3] max-h-[620px] items-center justify-center rounded-xl bg-muted sm:aspect-[16/9]">
+      <div className="flex aspect-[4/3] max-h-[620px] items-center justify-center rounded-lg bg-muted sm:aspect-[16/9]">
         <House aria-hidden="true" className="size-12 text-foreground/20" strokeWidth={1.3} />
       </div>
     );
@@ -67,10 +67,10 @@ export function PropertyGallery({ images, propertyTitle, city }: PropertyGallery
 
   return (
     <>
-      <div className={secondaryImages.length > 0 ? "grid gap-2 lg:h-[520px] lg:grid-cols-[2fr_1fr]" : "relative aspect-[4/3] max-h-[680px] overflow-hidden rounded-xl bg-muted sm:aspect-[16/9]"}>
+      <div className={secondaryImages.length > 0 ? "grid gap-2 lg:h-[520px] lg:grid-cols-[2fr_1fr]" : "relative aspect-[4/3] max-h-[680px] overflow-hidden rounded-lg bg-muted sm:aspect-[16/9]"}>
         <button
           aria-label={`Ampliar imagen 1 de ${images.length}`}
-          className={secondaryImages.length > 0 ? "group relative aspect-[4/3] overflow-hidden rounded-xl bg-muted text-left focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring lg:aspect-auto" : "absolute inset-0 block size-full cursor-zoom-in text-left focus-visible:outline-2 focus-visible:outline-offset-[-3px] focus-visible:outline-ring"}
+          className={secondaryImages.length > 0 ? "group relative aspect-[4/3] overflow-hidden rounded-lg bg-muted text-left focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring lg:aspect-auto" : "absolute inset-0 block size-full cursor-zoom-in text-left focus-visible:outline-2 focus-visible:outline-offset-[-3px] focus-visible:outline-ring"}
           onClick={() => openImage(0)}
           type="button"
         >
