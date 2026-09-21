@@ -10,7 +10,8 @@
     "lint": "eslint",
     "typecheck": "tsc --noEmit",
     "db:generate": "drizzle-kit generate",
-    "db:migrate": "drizzle-kit migrate"
+    "db:migrate": "drizzle-kit migrate",
+    "client:onboard": "node scripts/onboard-organization.mjs"
   },
   "dependencies": {
     "@base-ui/react": "^1.8.0",

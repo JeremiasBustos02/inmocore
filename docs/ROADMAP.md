@@ -72,6 +72,8 @@
 
 ### M10 — Production hardening
 
+**Estado:** completado.
+
 **Objetivo:** preparar el MVP para una operación confiable en producción.
 
-**Resultado esperado:** seguridad, tests críticos, accesibilidad, SEO y revisión final verificados.
+**Resultado:** onboarding operativo, configuración visible, health check y documentación de operación, backup y recuperación.

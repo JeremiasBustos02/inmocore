@@ -1,4 +1,5 @@
 import { notFound } from "next/navigation";
+import { CheckCircle2, MinusCircle } from "lucide-react";
 import { AdminSubmitButton } from "@/components/admin/admin-submit-button";
 import { requireAuthenticatedUserId } from "@/lib/auth";
 import { getOrganizationAssetUrl } from "@/lib/organization-assets";
@@ -11,6 +12,16 @@ type OrganizationPageProps = {
   searchParams: Promise<{ settings?: string }>;
 };
 
+function ConfigurationStatus({ label, complete }: { label: string; complete: boolean }) {
+  const Icon = complete ? CheckCircle2 : MinusCircle;
+  return (
+    <li className="flex items-center gap-2 text-sm">
+      <Icon aria-hidden="true" className={complete ? "size-4 text-emerald-600" : "size-4 text-muted-foreground"} />
+      <span>{label}</span>
+    </li>
+  );
+}
+
 export default async function OrganizationPage({ params, searchParams }: OrganizationPageProps) {
   const userId = await requireAuthenticatedUserId();
   const { organizationSlug } = await params;
@@ -21,6 +32,7 @@ export default async function OrganizationPage({ params, searchParams }: Organiz
   const { settings } = await searchParams;
   const logoUrl = membership.logoPath ? getOrganizationAssetUrl(membership.logoPath) : null;
   const heroImageUrl = membership.heroImagePath ? getOrganizationAssetUrl(membership.heroImagePath) : null;
+  const hasContact = Boolean(membership.contactAddress || membership.contactPhone || membership.contactEmail);
 
   return (
     <main className="mx-auto flex min-h-screen w-full max-w-4xl flex-col gap-8 px-4 py-8 sm:px-6 lg:py-10">
@@ -29,6 +41,17 @@ export default async function OrganizationPage({ params, searchParams }: Organiz
         <h1 className="text-3xl font-semibold tracking-tight">Organización</h1>
         <p className="max-w-2xl text-muted-foreground">Definí cómo se presenta {membership.name} en su sitio público.</p>
       </header>
+
+      <section className="rounded-xl border bg-card p-5" aria-labelledby="configuration-status-title">
+        <h2 className="font-semibold" id="configuration-status-title">Configuración</h2>
+        <ul className="mt-3 grid gap-2 sm:grid-cols-2">
+          <ConfigurationStatus complete={hasContact} label="Datos de contacto" />
+          <ConfigurationStatus complete={Boolean(membership.whatsappPhone)} label="WhatsApp" />
+          <ConfigurationStatus complete={Boolean(membership.primaryColor)} label="Branding" />
+          <ConfigurationStatus complete={Boolean(membership.logoPath)} label="Logo" />
+          <ConfigurationStatus complete={Boolean(membership.heroImagePath)} label="Imagen de portada" />
+        </ul>
+      </section>
 
       <form action={updateOrganizationSettings.bind(null, organizationSlug)} className="flex flex-col gap-6">
         <section className="flex flex-col gap-5 rounded-xl border bg-card p-6" aria-labelledby="contact-title">
