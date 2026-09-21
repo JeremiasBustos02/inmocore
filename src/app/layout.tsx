@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Manrope } from "next/font/google";
+import { getPublicSiteUrl } from "@/lib/public-site";
 import "./globals.css";
 
 const manrope = Manrope({
@@ -8,8 +9,12 @@ const manrope = Manrope({
 });
 
 export const metadata: Metadata = {
-  title: "InmoCore",
-  description: "Plataforma inmobiliaria",
+  ...(getPublicSiteUrl() ? { metadataBase: getPublicSiteUrl() } : {}),
+  title: {
+    default: "InmoCore | Propiedades inmobiliarias",
+    template: "%s | InmoCore",
+  },
+  description: "Sitio público de propiedades inmobiliarias.",
 };
 
 export default function RootLayout({

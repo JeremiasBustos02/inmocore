@@ -155,6 +155,13 @@ export const getPublicOrganization = cache(async (organizationSlug: string) => {
   return organization ?? null;
 });
 
+export async function getPublicOrganizations() {
+  return db
+    .select({ id: organizations.id, slug: organizations.slug })
+    .from(organizations)
+    .orderBy(asc(organizations.slug));
+}
+
 function getPublicImageUrl(storagePath: string) {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
 
@@ -344,6 +351,21 @@ export async function getPublicProperties(
     page,
     totalPages,
   };
+}
+
+export async function getPublicPropertyPaths() {
+  return db
+    .select({ organizationSlug: organizations.slug, propertyId: properties.id })
+    .from(properties)
+    .innerJoin(organizations, eq(properties.organizationId, organizations.id))
+    .where(
+      and(
+        eq(properties.isPublished, true),
+        ne(properties.status, "draft"),
+        ne(properties.status, "archived"),
+      ),
+    )
+    .orderBy(asc(organizations.slug), asc(properties.id));
 }
 
 function isUuid(value: string) {

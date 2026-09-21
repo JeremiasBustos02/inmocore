@@ -3,6 +3,7 @@ import { ArrowLeft, House } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { getPublicSitePath, getPublicSiteUrl } from "@/lib/public-site";
 import { PublicFooter } from "../../public-footer";
 import { PublicHeader } from "../../public-header";
 import { getPublicOrganization, getPublicPropertyDetail } from "../../public-data";
@@ -22,19 +23,43 @@ export async function generateMetadata({
   const { organizationSlug, propertyId } = await params;
   const organization = await getPublicOrganization(organizationSlug);
 
-  if (!organization) return {};
+  if (!organization) return { robots: { index: false, follow: false } };
 
   const property = await getPublicPropertyDetail(organization.id, propertyId);
-  if (!property) return {};
+  if (!property) return { robots: { index: false, follow: false } };
 
   const description = property.description
     ?.replace(/\s+/g, " ")
     .trim()
     .slice(0, 155);
 
+  const operationLabel = publicOperationLabels[property.operationType];
+  const propertyTypeLabel = publicPropertyTypeLabels[property.propertyType];
+  const propertyDescription = description || `${operationLabel} de ${propertyTypeLabel.toLowerCase()} en ${property.city}.`;
+  const title = `${property.title} | ${property.city} | ${organization.name}`;
+
   return {
-    title: `${property.title} | ${organization.name}`,
-    description: description || `${property.title} en ${property.city}.`,
+    title,
+    description: propertyDescription,
+    ...(getPublicSiteUrl()
+      ? {
+          alternates: {
+            canonical: getPublicSitePath(
+              `/${encodeURIComponent(organization.slug)}/properties/${property.id}`,
+            ),
+          },
+        }
+      : {}),
+    openGraph: {
+      title,
+      description: propertyDescription,
+      type: "website",
+      ...(property.images[0]
+        ? {
+            images: [{ url: property.images[0].url, alt: `${property.title} en ${property.city}` }],
+          }
+        : {}),
+    },
   };
 }
 

@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { getPublicSitePath, getPublicSiteUrl } from "@/lib/public-site";
 import { Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty";
 import { PropertyCard } from "../property-card";
 import { PublicFooter } from "../public-footer";
@@ -19,17 +20,34 @@ type PublicPropertiesPageProps = {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 };
 
+function hasQueryParameters(searchParams: Record<string, string | string[] | undefined>) {
+  return Object.values(searchParams).some((value) =>
+    Array.isArray(value) ? value.length > 0 : value !== undefined,
+  );
+}
+
 export async function generateMetadata({
   params,
+  searchParams,
 }: PublicPropertiesPageProps): Promise<Metadata> {
-  const { organizationSlug } = await params;
+  const [{ organizationSlug }, rawSearchParams] = await Promise.all([params, searchParams]);
   const organization = await getPublicOrganization(organizationSlug);
 
-  if (!organization) return {};
+  if (!organization) return { robots: { index: false, follow: false } };
+
+  const catalogPath = `/${encodeURIComponent(organization.slug)}/properties`;
+  const hasFilters = hasQueryParameters(rawSearchParams);
+  const title = `Propiedades | ${organization.name}`;
+  const description = `Propiedades en venta y alquiler publicadas por ${organization.name}.`;
 
   return {
-    title: `Propiedades | ${organization.name}`,
-    description: `Propiedades en venta y alquiler publicadas por ${organization.name}.`,
+    title,
+    description,
+    openGraph: { title, description, type: "website" },
+    ...(getPublicSiteUrl()
+      ? { alternates: { canonical: getPublicSitePath(catalogPath) } }
+      : {}),
+    ...(hasFilters ? { robots: { index: false, follow: true } } : {}),
   };
 }
 

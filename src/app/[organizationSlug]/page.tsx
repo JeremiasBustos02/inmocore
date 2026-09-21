@@ -3,6 +3,7 @@ import { ArrowRight } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { getPublicSitePath, getPublicSiteUrl } from "@/lib/public-site";
 import { PropertyCard } from "./property-card";
 import { PropertySearch } from "./property-search";
 import { PublicFooter } from "./public-footer";
@@ -25,9 +26,16 @@ export async function generateMetadata({
 
   if (!organization) return {};
 
+  const title = `${organization.name} | Propiedades`;
+  const description = `Propiedades publicadas por ${organization.name}, disponibles para venta y alquiler.`;
+
   return {
-    title: `${organization.name} | Propiedades`,
-    description: `Propiedades publicadas por ${organization.name}, disponibles para venta y alquiler.`,
+    title,
+    description,
+    openGraph: { title, description, type: "website" },
+    ...(getPublicSiteUrl()
+      ? { alternates: { canonical: getPublicSitePath(`/${encodeURIComponent(organization.slug)}`) } }
+      : {}),
   };
 }
 
