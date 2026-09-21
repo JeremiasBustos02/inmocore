@@ -12,6 +12,7 @@ import {
   getPublicCities,
   getPublicHomeData,
   getPublicOrganization,
+  getPublicOrganizationAssetUrl,
 } from "./public-data";
 
 type PublicHomePageProps = {
@@ -28,11 +29,19 @@ export async function generateMetadata({
 
   const title = `${organization.name} | Propiedades`;
   const description = `Propiedades publicadas por ${organization.name}, disponibles para venta y alquiler.`;
+  const heroImageUrl = getPublicOrganizationAssetUrl(organization.heroImagePath);
 
   return {
     title,
     description,
-    openGraph: { title, description, type: "website" },
+    openGraph: {
+      title,
+      description,
+      type: "website",
+      ...(heroImageUrl
+        ? { images: [{ url: heroImageUrl, alt: organization.heroTitle ?? organization.name }] }
+        : {}),
+    },
     ...(getPublicSiteUrl()
       ? { alternates: { canonical: getPublicSitePath(`/${encodeURIComponent(organization.slug)}`) } }
       : {}),
@@ -72,6 +81,7 @@ export default async function PublicHomePage({ params }: PublicHomePageProps) {
     getPublicCities(organization.id),
   ]);
   const heroProperty = propertyList.find((property) => property.coverUrl);
+  const heroImageUrl = getPublicOrganizationAssetUrl(organization.heroImagePath) ?? heroProperty?.coverUrl;
   const homeHref = `/${encodeURIComponent(organization.slug)}`;
 
   return (
@@ -79,6 +89,7 @@ export default async function PublicHomePage({ params }: PublicHomePageProps) {
       <PublicHeader
         organizationName={organization.name}
         organizationSlug={organization.slug}
+        logoUrl={getPublicOrganizationAssetUrl(organization.logoPath)}
       />
 
       <main id="contenido-principal">
@@ -87,20 +98,20 @@ export default async function PublicHomePage({ params }: PublicHomePageProps) {
           className="relative min-h-[510px] overflow-visible bg-muted pb-10 sm:min-h-[560px] lg:min-h-[540px]"
         >
           <div className="absolute inset-0 overflow-hidden">
-            {heroProperty?.coverUrl ? (
+            {heroImageUrl ? (
               <Image
-                alt={`${heroProperty.title} en ${heroProperty.city}`}
+                alt={organization.heroTitle ?? `${organization.name} portada`}
                 className="object-cover"
                 fill
                 preload
                 sizes="100vw"
-                src={heroProperty.coverUrl}
+                src={heroImageUrl}
               />
             ) : null}
           </div>
           <div
             aria-hidden="true"
-            className={`absolute inset-0 ${heroProperty ? "bg-black/45" : "bg-black/5"}`}
+            className={`absolute inset-0 ${heroImageUrl ? "bg-black/45" : "bg-black/5"}`}
           />
           <div
             className={`relative mx-auto flex w-full max-w-[1320px] flex-col items-center px-5 pt-20 text-center sm:px-8 sm:pt-24 lg:px-10 lg:pt-28 ${heroProperty ? "text-white" : "text-foreground"}`}
@@ -109,10 +120,10 @@ export default async function PublicHomePage({ params }: PublicHomePageProps) {
               className="w-full max-w-4xl text-balance text-[clamp(2.45rem,5vw,4.5rem)] font-semibold leading-[1.04] tracking-[-0.04em]"
               id="hero-title"
             >
-              Encontrá tu próximo lugar
+               {organization.heroTitle ?? "Encontrá tu próximo lugar"}
             </h1>
-            <p className={`mt-4 w-full max-w-xl text-base leading-7 sm:text-lg ${heroProperty ? "text-white/85" : "text-muted-foreground"}`}>
-              Propiedades para vivir, invertir y proyectar con confianza.
+             <p className={`mt-4 w-full max-w-xl text-base leading-7 sm:text-lg ${heroImageUrl ? "text-white/85" : "text-muted-foreground"}`}>
+               {organization.heroSubtitle ?? "Propiedades para vivir, invertir y proyectar con confianza."}
             </p>
             <div className="relative z-10 mt-7 w-full sm:mt-8">
               <PropertySearch cities={cities} organizationSlug={organization.slug} />
@@ -239,6 +250,9 @@ export default async function PublicHomePage({ params }: PublicHomePageProps) {
       <PublicFooter
         organizationName={organization.name}
         organizationSlug={organization.slug}
+        contactEmail={organization.contactEmail}
+        contactPhone={organization.contactPhone}
+        whatsappPhone={organization.whatsappPhone}
       />
     </div>
   );

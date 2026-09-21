@@ -6,7 +6,7 @@ import { notFound } from "next/navigation";
 import { getPublicSitePath, getPublicSiteUrl } from "@/lib/public-site";
 import { PublicFooter } from "../../public-footer";
 import { PublicHeader } from "../../public-header";
-import { getPublicOrganization, getPublicPropertyDetail } from "../../public-data";
+import { getPublicOrganization, getPublicOrganizationAssetUrl, getPublicPropertyDetail } from "../../public-data";
 import {
   formatPublicPrice,
   publicOperationLabels,
@@ -111,7 +111,7 @@ export default async function PublicPropertyPage({ params }: PublicPropertyPageP
 
   return (
     <div className="public-site flex min-h-screen flex-col overflow-x-hidden">
-      <PublicHeader organizationName={organization.name} organizationSlug={organization.slug} />
+       <PublicHeader organizationName={organization.name} organizationSlug={organization.slug} logoUrl={getPublicOrganizationAssetUrl(organization.logoPath)} />
       <main className="flex-1" id="contenido-principal">
         <article className="mx-auto w-full max-w-[1320px] px-5 py-10 sm:px-8 sm:py-14 lg:px-10 lg:py-16">
           <Link className="public-link inline-flex items-center gap-2 text-sm font-semibold" href={catalogHref}>
@@ -272,7 +272,13 @@ export default async function PublicPropertyPage({ params }: PublicPropertyPageP
           ) : null}
         </article>
       </main>
-      <PublicFooter organizationName={organization.name} organizationSlug={organization.slug} />
+      <PublicFooter
+        contactEmail={organization.contactEmail}
+        contactPhone={organization.contactPhone}
+        organizationName={organization.name}
+        organizationSlug={organization.slug}
+        whatsappPhone={organization.whatsappPhone}
+      />
     </div>
   );
 }

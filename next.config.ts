@@ -5,7 +5,10 @@ const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const nextConfig: NextConfig = {
   images: {
     remotePatterns: supabaseUrl
-      ? [new URL("/storage/v1/object/public/property-images/**", supabaseUrl)]
+      ? [
+          new URL("/storage/v1/object/public/property-images/**", supabaseUrl),
+          new URL("/storage/v1/object/public/organization-assets/**", supabaseUrl),
+        ]
       : [],
   },
 };

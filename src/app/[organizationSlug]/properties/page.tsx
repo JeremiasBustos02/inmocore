@@ -9,6 +9,7 @@ import { PublicHeader } from "../public-header";
 import {
   getPublicCities,
   getPublicOrganization,
+  getPublicOrganizationAssetUrl,
   getPublicProperties,
   parsePublicPropertyFilters,
   publicFiltersToSearchParams,
@@ -79,7 +80,7 @@ export default async function PublicPropertiesPage({
 
   return (
     <div className="public-site flex min-h-screen flex-col overflow-x-hidden">
-      <PublicHeader organizationName={organization.name} organizationSlug={organization.slug} />
+       <PublicHeader organizationName={organization.name} organizationSlug={organization.slug} logoUrl={getPublicOrganizationAssetUrl(organization.logoPath)} />
       <main className="flex-1" id="contenido-principal">
         <section className="mx-auto w-full max-w-[1320px] px-5 py-12 sm:px-8 sm:py-16 lg:px-10 lg:py-20">
           <div className="max-w-3xl">
@@ -161,7 +162,13 @@ export default async function PublicPropertiesPage({
           ) : null}
         </section>
       </main>
-      <PublicFooter organizationName={organization.name} organizationSlug={organization.slug} />
+      <PublicFooter
+        contactEmail={organization.contactEmail}
+        contactPhone={organization.contactPhone}
+        organizationName={organization.name}
+        organizationSlug={organization.slug}
+        whatsappPhone={organization.whatsappPhone}
+      />
     </div>
   );
 }

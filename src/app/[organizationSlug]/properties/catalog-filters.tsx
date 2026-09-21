@@ -1,7 +1,8 @@
 "use client";
 
 import { Search } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import Link from "next/link";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { Field, FieldGroup, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import {
@@ -174,13 +175,15 @@ export function CatalogFilters({
           <Search data-icon="inline-start" />
           Aplicar filtros
         </Button>
-        <Button
-          className="h-11 rounded-[10px] px-5"
-          render={<a href={`/${encodeURIComponent(organizationSlug)}/properties`} />}
-          variant="outline"
+        <Link
+          className={buttonVariants({
+            className: "h-11 rounded-[10px] px-5",
+            variant: "outline",
+          })}
+          href={`/${encodeURIComponent(organizationSlug)}/properties`}
         >
           Limpiar
-        </Button>
+        </Link>
       </div>
     </form>
   );

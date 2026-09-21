@@ -60,6 +60,13 @@ export const organizations = pgTable(
     name: text("name").notNull(),
     slug: text("slug").notNull().unique(),
     whatsappPhone: text("whatsapp_phone"),
+    contactEmail: text("contact_email"),
+    contactPhone: text("contact_phone"),
+    logoPath: text("logo_path"),
+    primaryColor: text("primary_color"),
+    heroImagePath: text("hero_image_path"),
+    heroTitle: text("hero_title"),
+    heroSubtitle: text("hero_subtitle"),
     createdAt: timestamp("created_at", { withTimezone: true })
       .defaultNow()
       .notNull(),

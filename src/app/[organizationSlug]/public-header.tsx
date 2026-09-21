@@ -1,14 +1,17 @@
 import { Menu } from "lucide-react";
 import Link from "next/link";
+import Image from "next/image";
 
 type PublicHeaderProps = {
   organizationName: string;
   organizationSlug: string;
+  logoUrl: string | null;
 };
 
 export function PublicHeader({
   organizationName,
   organizationSlug,
+  logoUrl,
 }: PublicHeaderProps) {
   const homeHref = `/${encodeURIComponent(organizationSlug)}`;
   const propertiesHref = `${homeHref}/properties`;
@@ -33,7 +36,7 @@ export function PublicHeader({
           className="min-w-0 max-w-[14rem] flex-1 truncate text-[15px] font-semibold leading-tight tracking-[-0.01em] focus-visible:rounded-sm focus-visible:outline-2 focus-visible:outline-offset-4 sm:max-w-xs sm:text-base"
           href={homeHref}
         >
-          {organizationName}
+          {logoUrl ? <Image alt={organizationName} className="h-10 w-auto max-w-[12rem] object-contain object-left" height={40} src={logoUrl} width={192} /> : organizationName}
         </Link>
 
         <nav aria-label="Navegación principal" className="hidden items-center gap-7 md:flex">

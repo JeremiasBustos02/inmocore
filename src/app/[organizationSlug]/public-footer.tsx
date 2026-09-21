@@ -3,11 +3,17 @@ import Link from "next/link";
 type PublicFooterProps = {
   organizationName: string;
   organizationSlug: string;
+  contactEmail: string | null;
+  contactPhone: string | null;
+  whatsappPhone: string | null;
 };
 
 export function PublicFooter({
   organizationName,
   organizationSlug,
+  contactEmail,
+  contactPhone,
+  whatsappPhone,
 }: PublicFooterProps) {
   const homeHref = `/${encodeURIComponent(organizationSlug)}`;
 
@@ -20,11 +26,18 @@ export function PublicFooter({
             © {new Date().getFullYear()} {organizationName}
           </p>
         </div>
-        <nav aria-label="Navegación del pie" className="flex flex-wrap gap-x-6 gap-y-3 text-sm">
+        <div className="flex flex-col gap-3 text-sm md:items-end">
+          <div className="flex flex-wrap gap-x-6 gap-y-3">
+            {contactPhone ? <a className="public-link" href={`tel:${contactPhone}`}>{contactPhone}</a> : null}
+            {contactEmail ? <a className="public-link" href={`mailto:${contactEmail}`}>{contactEmail}</a> : null}
+            {whatsappPhone ? <a className="public-link" href={`https://wa.me/${whatsappPhone}`}>WhatsApp</a> : null}
+          </div>
+          <nav aria-label="Navegación del pie" className="flex flex-wrap gap-x-6 gap-y-3">
           <Link className="public-link" href={homeHref}>Inicio</Link>
           <Link className="public-link" href={`${homeHref}/properties`}>Propiedades</Link>
           <Link className="public-link" href={`${homeHref}#contacto`}>Contacto</Link>
-        </nav>
+          </nav>
+        </div>
       </div>
     </footer>
   );

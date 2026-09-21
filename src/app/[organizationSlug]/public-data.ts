@@ -21,6 +21,7 @@ import {
   propertyTypes,
 } from "@/db/schema";
 import { PROPERTY_IMAGES_BUCKET } from "@/lib/property-images";
+import { getOrganizationAssetUrl } from "@/lib/organization-assets";
 
 export type PublicProperty = {
   id: string;
@@ -152,6 +153,13 @@ export const getPublicOrganization = cache(async (organizationSlug: string) => {
       name: organizations.name,
       slug: organizations.slug,
       whatsappPhone: organizations.whatsappPhone,
+      contactEmail: organizations.contactEmail,
+      contactPhone: organizations.contactPhone,
+      logoPath: organizations.logoPath,
+      primaryColor: organizations.primaryColor,
+      heroImagePath: organizations.heroImagePath,
+      heroTitle: organizations.heroTitle,
+      heroSubtitle: organizations.heroSubtitle,
     })
     .from(organizations)
     .where(eq(organizations.slug, organizationSlug))
@@ -159,6 +167,10 @@ export const getPublicOrganization = cache(async (organizationSlug: string) => {
 
   return organization ?? null;
 });
+
+export function getPublicOrganizationAssetUrl(storagePath: string | null) {
+  return storagePath ? getOrganizationAssetUrl(storagePath) : null;
+}
 
 export async function getPublicOrganizations() {
   return db
