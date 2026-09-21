@@ -153,6 +153,7 @@ export const getPublicOrganization = cache(async (organizationSlug: string) => {
       name: organizations.name,
       slug: organizations.slug,
       whatsappPhone: organizations.whatsappPhone,
+      contactAddress: organizations.contactAddress,
       contactEmail: organizations.contactEmail,
       contactPhone: organizations.contactPhone,
       logoPath: organizations.logoPath,
@@ -452,4 +453,73 @@ export const getPublicPropertyDetail = cache(async (
       url: getPublicImageUrl(storagePath),
     })),
   } satisfies PublicPropertyDetail;
+});
+
+export const getPublicSimilarProperties = cache(async (
+  organizationId: string,
+  propertyId: string,
+  operationType: PublicProperty["operationType"],
+  propertyType: PublicProperty["propertyType"],
+  city: string,
+) => {
+  const similarityOrder = sql<number>`case
+    when ${properties.propertyType} = ${propertyType} and ${properties.city} = ${city} then 1
+    when ${properties.propertyType} = ${propertyType} then 2
+    when ${properties.city} = ${city} then 3
+    else 4
+  end`;
+  const conditions = [
+    ...publicPropertyConditions(organizationId),
+    eq(properties.operationType, operationType),
+    ne(properties.id, propertyId),
+  ];
+  const propertyList = await db
+    .select({
+      id: properties.id,
+      title: properties.title,
+      operationType: properties.operationType,
+      propertyType: properties.propertyType,
+      priceAmount: properties.priceAmount,
+      currency: properties.currency,
+      city: properties.city,
+      bedrooms: properties.bedrooms,
+      bathrooms: properties.bathrooms,
+      totalAreaM2: properties.totalAreaM2,
+    })
+    .from(properties)
+    .where(and(...conditions))
+    .orderBy(similarityOrder, desc(properties.createdAt), asc(properties.id))
+    .limit(6);
+
+  if (propertyList.length === 0) return [] satisfies PublicProperty[];
+
+  const covers = await db
+    .selectDistinctOn([propertyImages.propertyId], {
+      propertyId: propertyImages.propertyId,
+      storagePath: propertyImages.storagePath,
+    })
+    .from(propertyImages)
+    .innerJoin(properties, eq(propertyImages.propertyId, properties.id))
+    .where(
+      and(
+        ...publicPropertyConditions(organizationId),
+        inArray(properties.id, propertyList.map(({ id }) => id)),
+      ),
+    )
+    .orderBy(
+      asc(propertyImages.propertyId),
+      asc(propertyImages.sortOrder),
+      asc(propertyImages.createdAt),
+      asc(propertyImages.id),
+    );
+  const coverByProperty = new Map(
+    covers.map(({ propertyId: id, storagePath }) => [id, getPublicImageUrl(storagePath)]),
+  );
+
+  return propertyList.map(
+    (property): PublicProperty => ({
+      ...property,
+      coverUrl: coverByProperty.get(property.id) ?? null,
+    }),
+  );
 });

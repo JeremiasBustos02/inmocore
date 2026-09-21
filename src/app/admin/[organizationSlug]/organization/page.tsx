@@ -1,5 +1,5 @@
 import { notFound } from "next/navigation";
-import { Button } from "@/components/ui/button";
+import { AdminSubmitButton } from "@/components/admin/admin-submit-button";
 import { requireAuthenticatedUserId } from "@/lib/auth";
 import { getOrganizationAssetUrl } from "@/lib/organization-assets";
 import { requireOrganizationMembership } from "@/lib/organizations";
@@ -34,9 +34,10 @@ export default async function OrganizationPage({ params, searchParams }: Organiz
         <section className="flex flex-col gap-5 rounded-xl border bg-card p-6" aria-labelledby="contact-title">
           <div><h2 className="text-xl font-semibold" id="contact-title">Contacto</h2><p className="mt-1 text-sm text-muted-foreground">Estos datos pueden aparecer en el pie del sitio público.</p></div>
           <div className="grid gap-4 sm:grid-cols-2">
-            <label className="flex flex-col gap-2 text-sm font-medium">WhatsApp<input className="h-10 rounded-lg border border-input bg-transparent px-3 font-normal outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50" defaultValue={membership.whatsappPhone ?? ""} inputMode="tel" maxLength={20} name="whatsappPhone" placeholder="5492266XXXXXX" /></label>
-            <label className="flex flex-col gap-2 text-sm font-medium">Teléfono<input className="h-10 rounded-lg border border-input bg-transparent px-3 font-normal outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50" defaultValue={membership.contactPhone ?? ""} inputMode="tel" maxLength={30} name="contactPhone" placeholder="02266 123456" /></label>
-            <label className="flex flex-col gap-2 text-sm font-medium sm:col-span-2">Email público<input className="h-10 rounded-lg border border-input bg-transparent px-3 font-normal outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50" defaultValue={membership.contactEmail ?? ""} maxLength={254} name="contactEmail" placeholder="hola@inmobiliaria.com" type="email" /></label>
+             <label className="flex flex-col gap-2 text-sm font-medium" htmlFor="whatsappPhone">WhatsApp<input className="h-10 rounded-lg border border-input bg-transparent px-3 font-normal outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50" defaultValue={membership.whatsappPhone ?? ""} id="whatsappPhone" inputMode="tel" maxLength={20} name="whatsappPhone" placeholder="5492266XXXXXX" /></label>
+              <label className="flex flex-col gap-2 text-sm font-medium" htmlFor="contactPhone">Teléfono<input className="h-10 rounded-lg border border-input bg-transparent px-3 font-normal outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50" defaultValue={membership.contactPhone ?? ""} id="contactPhone" inputMode="tel" maxLength={30} name="contactPhone" placeholder="02266 123456" /></label>
+              <label className="flex flex-col gap-2 text-sm font-medium sm:col-span-2" htmlFor="contactAddress">Dirección pública<input className="h-10 rounded-lg border border-input bg-transparent px-3 font-normal outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50" defaultValue={membership.contactAddress ?? ""} id="contactAddress" maxLength={180} name="contactAddress" placeholder="Dirección de la inmobiliaria" /></label>
+              <label className="flex flex-col gap-2 text-sm font-medium sm:col-span-2" htmlFor="contactEmail">Email público<input aria-invalid={settings === "invalid-email"} className="h-10 rounded-lg border border-input bg-transparent px-3 font-normal outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 aria-invalid:border-destructive" defaultValue={membership.contactEmail ?? ""} id="contactEmail" maxLength={254} name="contactEmail" placeholder="hola@inmobiliaria.com" type="email" />{settings === "invalid-email" ? <span className="text-sm font-normal text-destructive" role="alert">Ingresá un email válido.</span> : null}</label>
           </div>
         </section>
 
@@ -56,7 +57,7 @@ export default async function OrganizationPage({ params, searchParams }: Organiz
           <div><h3 className="font-medium">Imagen de portada</h3><p className="mb-3 mt-1 text-sm text-muted-foreground">Se usa como fondo del Hero y se reemplaza sin versionado.</p><OrganizationAssetUpload assetType="hero" currentUrl={heroImageUrl} label="Imagen de portada" organizationId={membership.id} organizationSlug={organizationSlug} /></div>
         </section>
 
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center"><Button type="submit">Guardar configuración</Button>{settings === "saved" ? <p className="text-sm text-muted-foreground" role="status">Configuración actualizada.</p> : settings?.startsWith("invalid") ? <p className="text-sm text-destructive" role="alert">Revisá los datos ingresados.</p> : null}</div>
+        <div className="flex flex-col gap-3 border-t pt-6 sm:flex-row sm:items-center"><AdminSubmitButton pendingLabel="Guardando…">Guardar configuración</AdminSubmitButton>{settings === "saved" ? <p className="text-sm text-muted-foreground" role="status">Configuración actualizada.</p> : settings?.startsWith("invalid") ? <p className="text-sm text-destructive" role="alert">Revisá los datos ingresados.</p> : null}</div>
       </form>
     </main>
   );

@@ -15,8 +15,8 @@ export default async function AdminPage() {
 
   return (
     <main className="mx-auto flex min-h-screen max-w-2xl items-center px-6 py-12">
-      <section className="w-full space-y-6">
-        <div className="space-y-2">
+      <section className="flex w-full flex-col gap-6">
+        <div className="flex flex-col gap-2">
           <h1 className="text-3xl font-semibold tracking-tight">
             {accessibleOrganizations.length === 0
               ? "Sin inmobiliarias asignadas"

@@ -60,6 +60,7 @@ export const organizations = pgTable(
     name: text("name").notNull(),
     slug: text("slug").notNull().unique(),
     whatsappPhone: text("whatsapp_phone"),
+    contactAddress: text("contact_address"),
     contactEmail: text("contact_email"),
     contactPhone: text("contact_phone"),
     logoPath: text("logo_path"),

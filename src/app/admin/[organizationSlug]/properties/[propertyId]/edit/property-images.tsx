@@ -3,6 +3,8 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import { Image as ImageIcon } from "lucide-react";
+import { AdminFilePicker } from "@/components/admin/admin-file-picker";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -11,7 +13,6 @@ import {
   EmptyHeader,
   EmptyTitle,
 } from "@/components/ui/empty";
-import { Input } from "@/components/ui/input";
 import {
   MAX_PROPERTY_IMAGES,
   MAX_PROPERTY_IMAGE_SIZE,
@@ -74,7 +75,7 @@ export function PropertyImages({
     if (inputRef.current) inputRef.current.value = "";
   }
 
-  function selectFiles(files: FileList | null) {
+  function selectFiles(files: FileList | File[] | null) {
     setError(null);
 
     if (!files || files.length === 0) {
@@ -236,14 +237,16 @@ export function PropertyImages({
       </div>
 
       <div className="flex flex-col gap-3 rounded-xl border bg-card p-4">
-        <Input
-          ref={inputRef}
-          type="file"
+        <AdminFilePicker
           accept="image/jpeg,image/png,image/webp"
+          files={selectedImages.map((image) => image.file)}
+          hint={`JPEG, PNG o WebP · máximo 10 MB por imagen · hasta ${MAX_PROPERTY_IMAGES}`}
+          inputRef={inputRef}
+          label="Seleccionar imágenes"
           multiple
           disabled={isWorking || images.length >= MAX_PROPERTY_IMAGES}
-          aria-label="Seleccionar imágenes"
-          onChange={(event) => selectFiles(event.target.files)}
+          onChange={(files) => selectFiles(files.length > 0 ? files : null)}
+          icon={ImageIcon}
         />
 
         {selectedImages.length > 0 ? (
@@ -265,7 +268,7 @@ export function PropertyImages({
             disabled={isWorking || selectedImages.length === 0}
             onClick={uploadImages}
           >
-            Subir imágenes
+            {isWorking ? "Subiendo…" : "Subir imágenes"}
           </Button>
           {uploadProgress ? (
             <p className="text-sm text-muted-foreground" aria-live="polite">

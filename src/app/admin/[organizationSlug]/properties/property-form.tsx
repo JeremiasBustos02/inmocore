@@ -1,5 +1,6 @@
 import Link from "next/link";
-import { Button, buttonVariants } from "@/components/ui/button";
+import { AdminSubmitButton } from "@/components/admin/admin-submit-button";
+import { buttonVariants } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
   Field,
@@ -69,7 +70,7 @@ export function PropertyForm({
 }: PropertyFormProps) {
   return (
     <form action={action} className="flex flex-col gap-8">
-      {error ? (
+      {error && error !== "reference" ? (
         <Field data-invalid>
           <FieldError>
             {error === "reference"
@@ -85,7 +86,8 @@ export function PropertyForm({
           <div className="grid gap-5 md:grid-cols-2">
             <Field>
               <FieldLabel htmlFor="reference">Referencia</FieldLabel>
-              <Input id="reference" name="reference" defaultValue={initialValues?.reference} required />
+              <Input aria-invalid={error === "reference"} id="reference" name="reference" defaultValue={initialValues?.reference} required />
+              {error === "reference" ? <FieldError>Ya existe una propiedad con esa referencia en esta inmobiliaria.</FieldError> : null}
             </Field>
             <Field>
               <FieldLabel htmlFor="title">Título</FieldLabel>
@@ -197,7 +199,7 @@ export function PropertyForm({
 
       <div className="flex flex-wrap justify-end gap-3">
         <Link className={buttonVariants({ variant: "outline" })} href={cancelHref}>Cancelar</Link>
-        <Button type="submit">{submitLabel}</Button>
+        <AdminSubmitButton pendingLabel="Guardando…">{submitLabel}</AdminSubmitButton>
       </div>
     </form>
   );

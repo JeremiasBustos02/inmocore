@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { ArrowRight } from "lucide-react";
+import { ArrowRight, Handshake, MapPin, MessageCircle, ShieldCheck } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import { notFound } from "next/navigation";
@@ -55,18 +55,21 @@ const propertyTypes = [
   { label: "Locales", value: "commercial" },
 ] as const;
 
-const reasons = [
+const benefits = [
   {
-    title: "Conocimiento local",
-    description: "Una lectura atenta del mercado y del contexto de cada propiedad.",
+    title: "Conocimiento Local",
+    description: "Profundo conocimiento del mercado inmobiliario de la región y alrededores.",
+    icon: MapPin,
   },
   {
-    title: "Atención personalizada",
-    description: "Acompañamiento cercano para tomar decisiones con tranquilidad.",
+    title: "Atención Personalizada",
+    description: "Te acompañamos en todo el proceso, desde la búsqueda hasta la escrituración.",
+    icon: Handshake,
   },
   {
-    title: "Gestión transparente",
-    description: "Información clara y seguimiento durante cada etapa de la operación.",
+    title: "Transparencia Total",
+    description: "Información clara y transparente en todas nuestras operaciones.",
+    icon: ShieldCheck,
   },
 ];
 
@@ -199,33 +202,22 @@ export default async function PublicHomePage({ params }: PublicHomePageProps) {
           </div>
         </section>
 
-        <section className="mx-auto grid w-full max-w-[1320px] scroll-mt-6 gap-7 px-5 py-16 sm:px-8 sm:py-20 md:grid-cols-[0.8fr_1.2fr] lg:px-10 lg:py-24" id="estudio">
-          <div>
-            <p className="text-sm font-semibold text-muted-foreground">Sobre el estudio</p>
-            <h2 className="mt-3 text-balance text-3xl font-semibold tracking-[-0.03em] sm:text-4xl">
-              Una gestión cercana
-            </h2>
-          </div>
-          <p className="max-w-2xl text-pretty text-xl leading-8 tracking-[-0.015em] text-foreground/80 md:justify-self-end md:text-2xl md:leading-9">
-            Acompañamos cada operación con una gestión clara, profesional y enfocada en lo que necesitás.
-          </p>
-        </section>
-
-        <section className="border-y border-border">
+        <section className="border-y border-border bg-muted" id="estudio">
           <div className="mx-auto w-full max-w-[1320px] px-5 py-16 sm:px-8 sm:py-20 lg:px-10">
-            <h2 className="text-balance text-3xl font-semibold tracking-[-0.03em] sm:text-4xl">
-              Por qué elegirnos
-            </h2>
-            <div className="mt-9 grid border-t border-border md:grid-cols-3">
-              {reasons.map((reason, index) => (
-                <article className="border-b border-border py-7 md:border-b-0 md:border-r md:px-7 md:first:pl-0 md:last:border-r-0 md:last:pr-0" key={reason.title}>
-                  <p className="text-sm font-semibold tabular-nums text-muted-foreground">
-                    {String(index + 1).padStart(2, "0")}
-                  </p>
-                  <h3 className="mt-6 text-balance text-lg font-semibold">{reason.title}</h3>
-                  <p className="mt-3 max-w-sm text-sm leading-6 text-muted-foreground">
-                    {reason.description}
-                  </p>
+            <div className="grid gap-8 md:grid-cols-[.8fr_1.2fr] md:items-end">
+              <h2 className="text-balance text-3xl font-semibold tracking-[-0.03em] sm:text-4xl">
+                ¿Por qué elegir {organization.name}?
+              </h2>
+              <p className="max-w-2xl text-pretty text-lg leading-8 text-foreground/75 md:justify-self-end md:text-xl">
+                Con años de experiencia en el mercado inmobiliario de la región, te brindamos un servicio personalizado y profesional para que encuentres exactamente lo que buscás.
+              </p>
+            </div>
+            <div className="mt-12 grid border-t border-border md:grid-cols-3">
+              {benefits.map(({ title, description, icon: Icon }) => (
+                <article className="border-b border-border py-7 md:border-b-0 md:border-r md:px-7 md:first:pl-0 md:last:border-r-0 md:last:pr-0" key={title}>
+                  <Icon aria-hidden="true" className="size-6 text-primary" strokeWidth={1.7} />
+                  <h3 className="mt-5 text-balance text-lg font-semibold">{title}</h3>
+                  <p className="mt-3 max-w-sm text-sm leading-6 text-muted-foreground">{description}</p>
                 </article>
               ))}
             </div>
@@ -233,26 +225,29 @@ export default async function PublicHomePage({ params }: PublicHomePageProps) {
         </section>
 
         <section className="scroll-mt-6 bg-primary text-primary-foreground" id="contacto">
-          <div className="mx-auto grid w-full max-w-[1320px] gap-7 px-5 py-16 sm:px-8 sm:py-20 md:grid-cols-[1.2fr_.8fr] md:items-end lg:px-10">
+          <div className="mx-auto grid w-full max-w-[1320px] gap-10 px-5 py-16 sm:px-8 sm:py-20 md:grid-cols-[1.1fr_.9fr] md:items-end lg:px-10">
             <div>
-              <p className="text-sm font-semibold text-primary-foreground/65">Consultas y tasaciones</p>
-              <h2 className="mt-4 max-w-2xl text-balance text-[clamp(2rem,4vw,3.5rem)] font-semibold leading-tight tracking-[-0.04em]">
-                Hablemos sobre tu próxima operación inmobiliaria.
-              </h2>
+              <h2 className="max-w-2xl text-balance text-[clamp(2rem,4vw,3.5rem)] font-semibold leading-tight tracking-[-0.04em]">Contactanos</h2>
+              <p className="mt-4 max-w-xl text-base leading-7 text-primary-foreground/75">Escribinos y te ayudamos a encontrar lo que estás buscando.</p>
+              <div className="mt-8 flex flex-col gap-3 text-sm text-primary-foreground/85">
+                {organization.contactAddress ? <p>{organization.contactAddress}</p> : null}
+                {organization.contactPhone ? <a className="w-fit hover:underline" href={`tel:${organization.contactPhone}`}>{organization.contactPhone}</a> : null}
+                {organization.contactEmail ? <a className="w-fit hover:underline" href={`mailto:${organization.contactEmail}`}>{organization.contactEmail}</a> : null}
+              </div>
             </div>
-            <p className="max-w-md text-base leading-7 text-primary-foreground/70 md:justify-self-end">
-              {organization.name} te acompaña para evaluar una propiedad o encontrar una nueva oportunidad.
-            </p>
+            {organization.whatsappPhone ? <a className="inline-flex min-h-12 w-fit items-center gap-2.5 rounded-xl bg-background px-5 text-sm font-semibold text-foreground shadow-sm transition-transform duration-200 hover:-translate-y-0.5 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-background md:justify-self-end" href={`https://wa.me/${organization.whatsappPhone}`} rel="noopener noreferrer" target="_blank"><MessageCircle aria-hidden="true" className="size-[18px]" strokeWidth={1.8} />Escribinos por WhatsApp</a> : null}
           </div>
         </section>
       </main>
 
-      <PublicFooter
+       <PublicFooter
+        contactAddress={organization.contactAddress}
         organizationName={organization.name}
         organizationSlug={organization.slug}
         contactEmail={organization.contactEmail}
         contactPhone={organization.contactPhone}
         whatsappPhone={organization.whatsappPhone}
+        logoUrl={getPublicOrganizationAssetUrl(organization.logoPath)}
       />
     </div>
   );

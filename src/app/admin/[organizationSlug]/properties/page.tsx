@@ -133,7 +133,7 @@ export default async function PropertiesPage({
         </div>
       </form>
 
-      <section className="overflow-hidden rounded-xl border bg-card">
+      <section className="overflow-x-auto rounded-xl border bg-card">
         {propertyList.length === 0 ? (
           <Empty className="min-h-48">
             <EmptyHeader>

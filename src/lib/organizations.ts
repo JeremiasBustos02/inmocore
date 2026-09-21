@@ -29,6 +29,7 @@ export async function requireOrganizationMembership(
       name: organizations.name,
       slug: organizations.slug,
       whatsappPhone: organizations.whatsappPhone,
+      contactAddress: organizations.contactAddress,
       contactEmail: organizations.contactEmail,
       contactPhone: organizations.contactPhone,
       logoPath: organizations.logoPath,

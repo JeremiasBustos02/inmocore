@@ -4,7 +4,6 @@ import {
   CheckCircle2,
   CircleAlert,
   Eye,
-  Home,
   ImageOff,
   Plus,
 } from "lucide-react";
@@ -233,13 +232,11 @@ export default async function OrganizationPage({
             <p className="mt-1 text-sm text-muted-foreground">Indicadores actuales de tu inventario.</p>
           </div>
         </div>
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
           <MetricCard icon={Building2} label="Propiedades totales" value={metrics.total} />
           <MetricCard icon={Eye} label="Publicadas" value={metrics.published} detail="Visibles en el sitio público" />
           <MetricCard icon={CheckCircle2} label="Disponibles" value={metrics.available} detail="Listas para operar" />
           <MetricCard icon={CircleAlert} label="Sin publicar" value={metrics.unpublished} detail="Requieren revisión" />
-          <MetricCard icon={Home} label="En venta" value={metrics.sale} />
-          <MetricCard icon={Home} label="En alquiler" value={metrics.rent} />
         </div>
       </section>
 

@@ -168,16 +168,18 @@ export function AdminSidebar(props: AdminNavigationProps) {
   const items = getNavigationItems(props.organizationSlug, props.role);
 
   return (
-    <aside className="hidden w-64 shrink-0 border-r bg-card/30 lg:flex lg:min-h-screen lg:flex-col lg:px-4 lg:py-6">
+    <aside className="sticky top-0 hidden h-[100dvh] max-h-[100dvh] w-64 shrink-0 border-r bg-card/30 lg:flex lg:flex-col lg:px-4 lg:py-6">
       <div className="flex flex-col gap-1 px-3">
         <Link className="text-lg font-semibold tracking-tight" href={`/admin/${encodeURIComponent(props.organizationSlug)}`}>
           InmoCore
         </Link>
         <p className="truncate text-sm text-muted-foreground">{props.organizationName}</p>
       </div>
-      <div className="mt-8 flex flex-1 flex-col gap-8">
-        <NavigationLinks items={items} pathname={pathname} />
-        <div className="mt-auto flex flex-col gap-4">
+      <div className="mt-8 flex min-h-0 flex-1 flex-col gap-8">
+        <div className="min-h-0 flex-1 overflow-y-auto">
+          <NavigationLinks items={items} pathname={pathname} />
+        </div>
+        <div className="flex shrink-0 flex-col gap-4">
           <p className="px-3 text-xs text-muted-foreground">{roleLabels[props.role]}</p>
           <SecondaryActions organizationSlug={props.organizationSlug} />
         </div>
@@ -199,14 +201,14 @@ export function AdminMobileNav(props: AdminNavigationProps) {
       >
         <Menu aria-hidden="true" />
       </SheetTrigger>
-      <SheetContent className="w-[min(20rem,calc(100vw-2rem))]" side="left">
+      <SheetContent className="max-h-[100dvh] w-[min(20rem,calc(100vw-2rem))] overflow-hidden" side="left">
         <SheetHeader className="border-b px-5 pb-4 pt-6 text-left">
           <SheetTitle>InmoCore</SheetTitle>
           <SheetDescription className="truncate">{props.organizationName}</SheetDescription>
         </SheetHeader>
-        <div className="flex flex-1 flex-col gap-6 px-5">
+        <div className="min-h-0 flex-1 overflow-y-auto px-5">
           <NavigationLinks items={items} pathname={pathname} onNavigate={() => setOpen(false)} />
-          <div className="mt-auto flex flex-col gap-4 pb-5">
+          <div className="mt-8 flex flex-col gap-4 pb-5">
             <p className="text-xs text-muted-foreground">{roleLabels[props.role]}</p>
             <SecondaryActions organizationSlug={props.organizationSlug} />
           </div>

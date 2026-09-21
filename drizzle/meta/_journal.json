@@ -50,6 +50,13 @@
       "when": 1790015000000,
       "tag": "0006_m9_organization_personalization",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1790026150465,
+      "tag": "0007_add_contact_address",
+      "breakpoints": true
     }
   ]
 }

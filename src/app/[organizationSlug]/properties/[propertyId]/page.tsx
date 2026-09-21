@@ -1,12 +1,13 @@
 import type { Metadata } from "next";
-import { ArrowLeft, House, MessageCircle } from "lucide-react";
-import Image from "next/image";
+import { ArrowLeft, MessageCircle } from "lucide-react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getPublicSitePath, getPublicSiteUrl } from "@/lib/public-site";
 import { PublicFooter } from "../../public-footer";
 import { PublicHeader } from "../../public-header";
-import { getPublicOrganization, getPublicOrganizationAssetUrl, getPublicPropertyDetail } from "../../public-data";
+import { getPublicOrganization, getPublicOrganizationAssetUrl, getPublicPropertyDetail, getPublicSimilarProperties } from "../../public-data";
+import { PropertyCard } from "../../property-card";
+import { PropertyGallery } from "./property-gallery";
 import {
   formatPublicPrice,
   publicOperationLabels,
@@ -72,6 +73,14 @@ export default async function PublicPropertyPage({ params }: PublicPropertyPageP
   const property = await getPublicPropertyDetail(organization.id, propertyId);
   if (!property) notFound();
 
+  const similarProperties = await getPublicSimilarProperties(
+    organization.id,
+    property.id,
+    property.operationType,
+    property.propertyType,
+    property.city,
+  );
+
   const catalogHref = `/${encodeURIComponent(organization.slug)}/properties`;
   const features = [
     property.rooms !== null
@@ -99,7 +108,6 @@ export default async function PublicPropertyPage({ params }: PublicPropertyPageP
     property.province,
     property.country !== "Argentina" ? property.country : null,
   ].filter((value): value is string => Boolean(value));
-  const [mainImage, ...secondaryImages] = property.images;
   const whatsappMessage = `Hola, quisiera consultar por la propiedad "${property.title}"${property.city ? ` en ${property.city}` : ""} (Ref. ${property.reference}).`;
   const whatsappHref = organization.whatsappPhone
     ? `https://wa.me/${organization.whatsappPhone}?text=${encodeURIComponent(whatsappMessage)}`
@@ -120,58 +128,7 @@ export default async function PublicPropertyPage({ params }: PublicPropertyPageP
           </Link>
 
           <div className="mt-7">
-            {mainImage ? (
-              <div
-                className={
-                  secondaryImages.length > 0
-                    ? "grid gap-2 lg:h-[520px] lg:grid-cols-[2fr_1fr]"
-                    : "relative aspect-[4/3] max-h-[680px] overflow-hidden rounded-xl bg-muted sm:aspect-[16/9]"
-                }
-              >
-                <div className={secondaryImages.length > 0
-                  ? "relative aspect-[4/3] overflow-hidden rounded-xl bg-muted lg:aspect-auto"
-                  : "absolute inset-0"}
-                >
-                  <Image
-                    alt={`${property.title} en ${property.city}`}
-                    className="object-cover"
-                    fill
-                    preload
-                    sizes={secondaryImages.length > 0
-                      ? "(max-width: 1023px) 100vw, 67vw"
-                      : "(max-width: 1320px) 100vw, 1240px"}
-                    src={mainImage.url}
-                  />
-                </div>
-                {secondaryImages.length > 0 ? (
-                  <div className={secondaryImages.length === 1
-                    ? "grid grid-cols-1 gap-2"
-                    : secondaryImages.length === 2
-                      ? "grid grid-cols-2 gap-2 lg:grid-cols-1 lg:grid-rows-2"
-                      : "grid grid-cols-2 gap-2 lg:grid-rows-2"}
-                  >
-                    {secondaryImages.map((image, index) => (
-                      <div
-                        className={`relative aspect-[4/3] overflow-hidden rounded-lg bg-muted lg:aspect-auto ${secondaryImages.length === 3 && index === 2 ? "col-span-2" : ""}`}
-                        key={image.id}
-                      >
-                        <Image
-                          alt={`${property.title}, imagen ${index + 2}`}
-                          className="object-cover"
-                          fill
-                          sizes="(max-width: 1023px) 50vw, 17vw"
-                          src={image.url}
-                        />
-                      </div>
-                    ))}
-                  </div>
-                ) : null}
-              </div>
-            ) : (
-              <div className="flex aspect-[4/3] max-h-[620px] items-center justify-center rounded-xl bg-muted sm:aspect-[16/9]">
-                <House aria-hidden="true" className="size-12 text-foreground/20" strokeWidth={1.3} />
-              </div>
-            )}
+            <PropertyGallery city={property.city} images={property.images} propertyTitle={property.title} />
           </div>
 
           <header className="mt-10 grid gap-7 border-b border-border pb-10 md:grid-cols-[minmax(0,1fr)_auto] md:items-end">
@@ -270,14 +227,36 @@ export default async function PublicPropertyPage({ params }: PublicPropertyPageP
               </p>
             </section>
           ) : null}
+
+          {similarProperties.length > 0 ? (
+            <section aria-labelledby="similar-properties-title" className="mt-16 border-t border-border pt-10">
+              <div className="flex items-end justify-between gap-5">
+                <h2 className="text-2xl font-semibold tracking-[-0.025em]" id="similar-properties-title">
+                  Propiedades similares
+                </h2>
+                <Link className="public-link hidden text-sm font-semibold sm:inline-flex" href={catalogHref}>
+                  Ver todas
+                </Link>
+              </div>
+              <div className="mt-7 flex snap-x snap-mandatory gap-6 overflow-x-auto pb-4 md:grid md:grid-cols-2 md:overflow-visible xl:grid-cols-3">
+                {similarProperties.map((similarProperty) => (
+                  <div className="min-w-[82%] snap-start sm:min-w-[45%] md:min-w-0" key={similarProperty.id}>
+                    <PropertyCard organizationSlug={organization.slug} property={similarProperty} />
+                  </div>
+                ))}
+              </div>
+            </section>
+          ) : null}
         </article>
       </main>
       <PublicFooter
-        contactEmail={organization.contactEmail}
+         contactAddress={organization.contactAddress}
+         contactEmail={organization.contactEmail}
         contactPhone={organization.contactPhone}
         organizationName={organization.name}
         organizationSlug={organization.slug}
-        whatsappPhone={organization.whatsappPhone}
+         whatsappPhone={organization.whatsappPhone}
+         logoUrl={getPublicOrganizationAssetUrl(organization.logoPath)}
       />
     </div>
   );

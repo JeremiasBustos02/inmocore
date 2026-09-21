@@ -82,6 +82,7 @@ export async function updateOrganizationSettings(
       : null;
   const contactEmail = readOptionalText(formData, "contactEmail", 254)?.toLowerCase() ?? null;
   const contactPhone = readOptionalText(formData, "contactPhone", 30);
+  const contactAddress = readOptionalText(formData, "contactAddress", 180);
   const heroTitle = readOptionalText(formData, "heroTitle", 120);
   const heroSubtitle = readOptionalText(formData, "heroSubtitle", 240);
   const whatsappPhone = readOptionalText(formData, "whatsappPhone", 20)?.replace(/[+().\s-]/g, "") ?? null;
@@ -105,6 +106,7 @@ export async function updateOrganizationSettings(
       whatsappPhone,
       contactEmail,
       contactPhone,
+      contactAddress,
       primaryColor,
       heroTitle,
       heroSubtitle,

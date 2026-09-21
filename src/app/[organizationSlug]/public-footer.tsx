@@ -1,42 +1,55 @@
+import Image from "next/image";
 import Link from "next/link";
 
 type PublicFooterProps = {
   organizationName: string;
   organizationSlug: string;
+  contactAddress: string | null;
   contactEmail: string | null;
   contactPhone: string | null;
   whatsappPhone: string | null;
+  logoUrl: string | null;
 };
 
 export function PublicFooter({
   organizationName,
   organizationSlug,
+  contactAddress,
   contactEmail,
   contactPhone,
   whatsappPhone,
+  logoUrl,
 }: PublicFooterProps) {
   const homeHref = `/${encodeURIComponent(organizationSlug)}`;
 
   return (
-    <footer className="border-t border-border">
-      <div className="mx-auto flex w-full max-w-[1320px] flex-col gap-7 px-5 py-9 sm:px-8 md:flex-row md:items-center md:justify-between lg:px-10">
+    <footer className="border-t border-border bg-muted/40">
+      <div className="mx-auto grid w-full max-w-[1320px] gap-10 px-5 py-14 sm:px-8 md:grid-cols-[1.4fr_.8fr_1fr] lg:px-10 lg:py-16">
         <div>
-          <p className="font-semibold">{organizationName}</p>
-          <p className="mt-2 text-sm text-muted-foreground">
-            © {new Date().getFullYear()} {organizationName}
-          </p>
+          <Link className="inline-flex max-w-[15rem] items-center focus-visible:rounded-sm focus-visible:outline-2 focus-visible:outline-offset-4" href={homeHref}>
+            {logoUrl ? <Image alt={organizationName} className="h-12 w-auto max-w-[13rem] object-contain object-left" height={48} sizes="208px" src={logoUrl} width={208} /> : <span className="text-lg font-semibold tracking-[-0.02em]">{organizationName}</span>}
+          </Link>
+          <p className="mt-5 max-w-xs text-sm leading-6 text-muted-foreground">Una gestión cercana, clara y profesional para encontrar tu próximo lugar.</p>
         </div>
-        <div className="flex flex-col gap-3 text-sm md:items-end">
-          <div className="flex flex-wrap gap-x-6 gap-y-3">
-            {contactPhone ? <a className="public-link" href={`tel:${contactPhone}`}>{contactPhone}</a> : null}
-            {contactEmail ? <a className="public-link" href={`mailto:${contactEmail}`}>{contactEmail}</a> : null}
-            {whatsappPhone ? <a className="public-link" href={`https://wa.me/${whatsappPhone}`}>WhatsApp</a> : null}
-          </div>
-          <nav aria-label="Navegación del pie" className="flex flex-wrap gap-x-6 gap-y-3">
+        <nav aria-label="Navegación del pie" className="flex flex-col items-start gap-3 text-sm">
+          <p className="mb-1 font-semibold text-foreground">Navegación</p>
           <Link className="public-link" href={homeHref}>Inicio</Link>
           <Link className="public-link" href={`${homeHref}/properties`}>Propiedades</Link>
-          <Link className="public-link" href={`${homeHref}#contacto`}>Contacto</Link>
-          </nav>
+          <Link className="public-link" href={`${homeHref}/properties?operation=sale`}>Comprar</Link>
+          <Link className="public-link" href={`${homeHref}/properties?operation=rent`}>Alquilar</Link>
+        </nav>
+        <div className="flex flex-col items-start gap-3 text-sm">
+          <p className="mb-1 font-semibold text-foreground">Contacto</p>
+          {contactAddress ? <p className="max-w-xs leading-6 text-muted-foreground">{contactAddress}</p> : null}
+          {contactPhone ? <a className="public-link" href={`tel:${contactPhone}`}>{contactPhone}</a> : null}
+          {contactEmail ? <a className="public-link break-all" href={`mailto:${contactEmail}`}>{contactEmail}</a> : null}
+          {whatsappPhone ? <a className="public-link" href={`https://wa.me/${whatsappPhone}`}>WhatsApp</a> : null}
+        </div>
+      </div>
+      <div className="border-t border-border">
+        <div className="mx-auto flex w-full max-w-[1320px] flex-col gap-2 px-5 py-5 text-xs text-muted-foreground sm:flex-row sm:items-center sm:justify-between sm:px-8 lg:px-10">
+          <p>© {new Date().getFullYear()} {organizationName}</p>
+          <p>{organizationName}</p>
         </div>
       </div>
     </footer>

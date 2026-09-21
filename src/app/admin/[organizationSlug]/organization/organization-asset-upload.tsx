@@ -3,7 +3,9 @@
 import { useRef, useState } from "react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
+import { Image as ImageIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { AdminFilePicker } from "@/components/admin/admin-file-picker";
 import {
   MAX_ORGANIZATION_ASSET_SIZE,
   ORGANIZATION_ASSETS_BUCKET,
@@ -33,6 +35,7 @@ export function OrganizationAssetUpload({
   const [isUploading, setIsUploading] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [selectedFile, setSelectedFile] = useState<File[]>([]);
 
   async function uploadAsset() {
     const file = inputRef.current?.files?.[0];
@@ -67,6 +70,7 @@ export function OrganizationAssetUpload({
       }
 
       setMessage(`${label} actualizado.`);
+      setSelectedFile([]);
       if (inputRef.current) inputRef.current.value = "";
       router.refresh();
     } catch (uploadError) {
@@ -92,13 +96,17 @@ export function OrganizationAssetUpload({
         <p className="rounded-lg border border-dashed px-4 py-5 text-sm text-muted-foreground">Todavía no hay una imagen configurada.</p>
       )}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-        <input
+        <AdminFilePicker
           accept="image/png,image/jpeg,image/webp"
-          className="block w-full min-w-0 text-sm file:mr-3 file:rounded-md file:border-0 file:bg-muted file:px-3 file:py-2 file:font-medium"
-          ref={inputRef}
-          type="file"
+          files={selectedFile}
+          hint="PNG, JPG o WebP · máximo 5 MB"
+          inputRef={inputRef}
+          label={currentUrl ? "Seleccionar nueva imagen" : "Seleccionar imagen"}
+          onChange={setSelectedFile}
+          disabled={isUploading}
+          icon={ImageIcon}
         />
-        <Button disabled={isUploading} onClick={uploadAsset} type="button">
+        <Button disabled={isUploading || selectedFile.length === 0} onClick={uploadAsset} type="button">
           {isUploading ? "Subiendo…" : currentUrl ? "Reemplazar" : "Subir imagen"}
         </Button>
       </div>

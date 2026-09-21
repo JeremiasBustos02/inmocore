@@ -162,12 +162,14 @@ export default async function PublicPropertiesPage({
           ) : null}
         </section>
       </main>
-      <PublicFooter
-        contactEmail={organization.contactEmail}
+       <PublicFooter
+         contactAddress={organization.contactAddress}
+         contactEmail={organization.contactEmail}
         contactPhone={organization.contactPhone}
         organizationName={organization.name}
         organizationSlug={organization.slug}
-        whatsappPhone={organization.whatsappPhone}
+         whatsappPhone={organization.whatsappPhone}
+         logoUrl={getPublicOrganizationAssetUrl(organization.logoPath)}
       />
     </div>
   );

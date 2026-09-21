@@ -2,9 +2,10 @@
 
 import { useState, useTransition } from "react";
 import Link from "next/link";
+import { FileSpreadsheet } from "lucide-react";
+import { AdminFilePicker } from "@/components/admin/admin-file-picker";
 import { Badge } from "@/components/ui/badge";
 import { Button, buttonVariants } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { confirmPropertyImport, previewPropertyImport, type ImportActionResult, type ImportPreview, type ImportResult } from "./import-actions";
 
@@ -54,13 +55,17 @@ export function PropertyImportClient({ organizationSlug }: { organizationSlug: s
       </header>
 
       <section className="flex flex-col gap-4 rounded-xl border bg-card p-5">
-        <label className="flex flex-col gap-2 text-sm font-medium" htmlFor="excel-file">
-          Archivo Excel (.xlsx)
-          <Input id="excel-file" type="file" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" onChange={(event) => { setFile(event.target.files?.[0] ?? null); setPreview(null); setResult(null); }} />
-        </label>
-        <p className="text-sm text-muted-foreground">Máximo 5 MB y 1.000 filas. Se lee únicamente la primera hoja.</p>
+          <AdminFilePicker
+            accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+            files={file ? [file] : []}
+            hint="Excel .xlsx · máximo 5 MB · primera hoja"
+            id="excel-file"
+            label="Seleccionar archivo Excel"
+            onChange={(files) => { setFile(files[0] ?? null); setPreview(null); setResult(null); }}
+            icon={FileSpreadsheet}
+          />
         <div className="flex flex-wrap gap-3">
-          <Button type="button" onClick={submitPreview} disabled={isPending || !file}>{isPending ? "Validando..." : "Validar y previsualizar"}</Button>
+          <Button type="button" onClick={submitPreview} disabled={isPending || !file}>{isPending ? "Validando…" : "Validar y previsualizar"}</Button>
           <Link className={buttonVariants({ variant: "outline" })} href={`/admin/${encodeURIComponent(organizationSlug)}/properties`}>Cancelar</Link>
         </div>
       </section>
@@ -78,7 +83,7 @@ export function PropertyImportClient({ organizationSlug }: { organizationSlug: s
         <section className="flex flex-col gap-4">
           <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
             <div><h2 className="text-xl font-semibold">Preview</h2><p className="text-sm text-muted-foreground">{preview.totalRows} filas · {preview.validRows} válidas · {preview.invalidRows} con errores · {preview.duplicateRows} duplicadas</p></div>
-            <Button type="button" onClick={submitImport} disabled={isPending || preview.validRows === 0}>{isPending ? "Importando..." : `Importar ${preview.validRows} filas válidas`}</Button>
+             <Button type="button" onClick={submitImport} disabled={isPending || preview.validRows === 0}>{isPending ? "Importando…" : `Importar ${preview.validRows} filas válidas`}</Button>
           </div>
           <div className="overflow-x-auto rounded-xl border bg-card">
             <Table>
