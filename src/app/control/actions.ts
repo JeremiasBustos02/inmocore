@@ -4,6 +4,7 @@ import { eq } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { notFound, redirect } from "next/navigation";
 import { db } from "@/db";
+import { derivePropertyCodePrefix } from "@/lib/property-code-format";
 import { memberships, organizations } from "@/db/schema";
 import { requirePlatformAdmin } from "@/lib/platform-admin";
 import {
@@ -100,7 +101,14 @@ export async function createProviderOrganization(formData: FormData) {
     const [createdOrganization] = await db.transaction(async (transaction) => {
       const [createdOrganization] = await transaction
         .insert(organizations)
-        .values({ name, slug, siteVariant, customDomain, isDemo })
+        .values({
+          name,
+          slug,
+          propertyCodePrefix: derivePropertyCodePrefix(slug),
+          siteVariant,
+          customDomain,
+          isDemo,
+        })
         .returning({ id: organizations.id });
 
       if (ownerId) {

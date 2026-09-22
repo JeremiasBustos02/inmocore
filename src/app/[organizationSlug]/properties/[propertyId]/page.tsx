@@ -8,6 +8,8 @@ import { PublicHeader } from "../../public-header";
 import { getPublicOrganization, getPublicOrganizationAssetUrl, getPublicPropertyDetail, getPublicSimilarProperties } from "../../public-data";
 import { PropertyCard } from "../../property-card";
 import { PropertyGallery } from "./property-gallery";
+import { PublicMap } from "@/components/maps/public-map";
+import { getGoogleMapsSearchUrl } from "@/lib/location";
 import {
   formatPublicPrice,
   publicOperationLabels,
@@ -107,14 +109,10 @@ export default async function PublicPropertyPage({ params }: PublicPropertyPageP
     property.province,
     property.country !== "Argentina" ? property.country : null,
   ].filter((value): value is string => Boolean(value));
-  const mapsLocation = [
-    property.address,
-    property.city,
-    property.province,
-    property.country,
-  ].filter((value): value is string => Boolean(value)).join(", ");
-  const mapsHref = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(mapsLocation)}`;
-  const whatsappMessage = `Hola, quisiera consultar por la propiedad "${property.title}"${property.city ? ` en ${property.city}` : ""} (Ref. ${property.reference}).`;
+  const mapsHref = property.location
+    ? getGoogleMapsSearchUrl(property.location)
+    : null;
+  const whatsappMessage = `Hola, quiero consultar por la propiedad ${property.propertyCode}: "${property.title}"${property.city ? ` en ${property.city}` : ""}.`;
   const whatsappHref = organization.whatsappPhone
     ? `https://wa.me/${organization.whatsappPhone}?text=${encodeURIComponent(whatsappMessage)}`
     : null;
@@ -196,20 +194,43 @@ export default async function PublicPropertyPage({ params }: PublicPropertyPageP
             ) : null}
 
             <aside className={`${property.description ? "" : "lg:col-start-2"} min-w-0 lg:border-l lg:border-border lg:pl-8`}>
-              <h2 className="text-2xl font-semibold tracking-[-0.025em]">Ubicación</h2>
-              <a
-                aria-label="Ver ubicación en Google Maps"
-                className="public-link mt-5 inline-flex max-w-full items-start gap-2 break-words text-base leading-7 text-foreground/80 hover:text-primary focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-ring"
-                href={mapsHref}
-                rel="noopener noreferrer"
-                target="_blank"
-              >
-                <MapPin aria-hidden="true" className="mt-1 size-4 shrink-0" strokeWidth={1.7} />
-                <span>{location.join(", ")}</span>
-              </a>
-              <p className="mt-7 text-sm text-muted-foreground">Ref. {property.reference}</p>
+              <h2 className="text-2xl font-semibold tracking-[-0.025em]">Código de propiedad</h2>
+              <p className="mt-5 text-base text-foreground/80">{property.propertyCode}</p>
             </aside>
           </div>
+
+          <section aria-labelledby="location-title" className="border-t border-border py-10">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+              <div>
+                <h2 className="text-2xl font-semibold tracking-[-0.025em]" id="location-title">Ubicación</h2>
+                <p className="mt-3 flex items-start gap-2 text-base leading-7 text-foreground/80">
+                  <MapPin aria-hidden="true" className="mt-1 size-4 shrink-0" strokeWidth={1.7} />
+                  <span>
+                    {property.location?.kind === "approximate" ? "Ubicación aproximada · " : ""}
+                    {location.join(", ")}
+                  </span>
+                </p>
+              </div>
+              {mapsHref ? (
+                <a
+                  aria-label={property.location?.kind === "approximate" ? "Ver la zona aproximada en Google Maps" : "Abrir la ubicación en Google Maps"}
+                  className="public-link w-fit cursor-pointer text-sm font-semibold focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-ring"
+                  href={mapsHref}
+                  rel="noopener noreferrer"
+                  target="_blank"
+                >
+                  {property.location?.kind === "approximate" ? "Ver zona en Google Maps ↗" : "Abrir en Google Maps ↗"}
+                </a>
+              ) : null}
+            </div>
+            {property.location ? (
+              <PublicMap
+                className="mt-6 h-[270px] w-full overflow-hidden rounded-lg border border-border bg-muted sm:h-[360px]"
+                location={property.location}
+                markerColor={organization.primaryColor}
+              />
+            ) : null}
+          </section>
 
           {whatsappHref ? (
             <section
@@ -235,14 +256,11 @@ export default async function PublicPropertyPage({ params }: PublicPropertyPageP
                 <MessageCircle aria-hidden="true" className="size-[18px]" strokeWidth={1.8} />
                 Consultar por WhatsApp
               </a>
-              <p className="mt-3 text-xs text-muted-foreground">
-                {contactNote}
-              </p>
             </section>
           ) : null}
 
           {similarProperties.length > 0 ? (
-            <section aria-labelledby="similar-properties-title" className="mt-16 border-t border-border pt-10">
+            <section aria-labelledby="similar-properties-title" className="mt-16 pt-10">
               <div className="flex items-end justify-between gap-5">
                 <h2 className="text-2xl font-semibold tracking-[-0.025em]" id="similar-properties-title">
                   Propiedades similares

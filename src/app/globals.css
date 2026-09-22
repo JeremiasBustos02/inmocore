@@ -210,6 +210,30 @@
   touch-action: manipulation;
 }
 
+.leaflet-container {
+  font-family: inherit;
+}
+
+.leaflet-control-attribution {
+  font-size: 10px;
+}
+
+.location-marker-wrapper {
+  background: transparent;
+  border: 0;
+}
+
+.location-marker {
+  display: block;
+  width: 28px;
+  height: 28px;
+  border: 4px solid white;
+  border-radius: 50% 50% 50% 0;
+  background: var(--location-marker-color, #171717);
+  box-shadow: 0 3px 10px rgb(0 0 0 / 28%);
+  transform: rotate(-45deg);
+}
+
 .public-property-card img,
 .public-card-arrow,
 .public-property-title,

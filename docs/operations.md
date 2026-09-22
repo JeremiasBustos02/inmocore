@@ -17,7 +17,15 @@ No crear SQL de schema manualmente ni agregar entradas a `_journal.json` a mano.
 
 Requeridas: `DATABASE_URL`, `DIRECT_DATABASE_URL` (migraciones y backup), `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`.
 
-Opcionales: `NEXT_PUBLIC_SITE_URL` (origen de la plataforma para organizaciones sin dominio propio, sitemap y robots), `SUPABASE_INVITE_REDIRECT_URL` (redirección de invitaciones), `SUPABASE_SECRET_KEY` (sólo para `pnpm client:onboard`, `pnpm client:add-member` y el provider backoffice, nunca para el navegador), `SUPABASE_MEMBER_PASSWORD` (sólo localmente con `client:add-member --mode create`, nunca commitearla) y `PLATFORM_ADMIN_USER_IDS` (IDs de usuarios Supabase autorizados al provider backoffice, separados por comas o espacios).
+Opcionales: `NEXT_PUBLIC_SITE_URL` (origen de la plataforma para organizaciones sin dominio propio, sitemap y robots), `NOMINATIM_BASE_URL` (instancia de geocodificación; usa el servicio público de OpenStreetMap por defecto), `SUPABASE_INVITE_REDIRECT_URL` (redirección de invitaciones), `SUPABASE_SECRET_KEY` (sólo para `pnpm client:onboard`, `pnpm client:add-member` y el provider backoffice, nunca para el navegador), `SUPABASE_MEMBER_PASSWORD` (sólo localmente con `client:add-member --mode create`, nunca commitearla) y `PLATFORM_ADMIN_USER_IDS` (IDs de usuarios Supabase autorizados al provider backoffice, separados por comas o espacios).
+
+## Mapas y privacidad
+
+Los mapas usan Leaflet y tiles de OpenStreetMap. Nominatim sólo se consulta desde acciones administrativas autenticadas, al presionar el botón de búsqueda; las consultas idénticas se cachean y un advisory lock limita las solicitudes salientes a una por segundo.
+
+La ubicación pública `approximate` se genera en el servidor redondeando latitud y longitud a dos decimales y se representa con un círculo de 750 metros. La dirección y las coordenadas exactas se eliminan antes de construir las props públicas. La opción `hidden` tampoco entrega coordenadas al cliente.
+
+Los códigos de propiedades se generan por organización mediante un contador atómico. El prefijo se deriva y persiste desde el slug al crear la organización; las referencias antiguas se conservan en `reference` como dato externo opcional. El backfill de la migración asigna códigos a las propiedades existentes ordenadas por creación y no modifica esas referencias.
 
 ## Provider backoffice
 

@@ -5,6 +5,7 @@ import { properties, propertyImages } from "@/db/schema";
 import { requireAuthenticatedUserId } from "@/lib/auth";
 import { requireOrganizationMembership } from "@/lib/organizations";
 import { archiveProperty, updateProperty } from "../../actions";
+import { geocodePropertyAddress } from "../../../geocoding-actions";
 import { PropertyForm } from "../../property-form";
 import { Button } from "@/components/ui/button";
 import { PROPERTY_IMAGES_BUCKET } from "@/lib/property-images";
@@ -68,7 +69,18 @@ export default async function EditPropertyPage({ params, searchParams }: EditPro
           Propiedad creada. Ahora podés agregar imágenes y completar los detalles.
         </div>
       ) : null}
-      <PropertyForm action={updateAction} cancelHref={propertiesHref} error={error} initialValues={property} submitLabel="Guardar cambios" />
+      <PropertyForm
+        action={updateAction}
+        cancelHref={propertiesHref}
+        error={error}
+        geocodeAction={geocodePropertyAddress.bind(null, organizationSlug)}
+        initialValues={property}
+        markerColor={membership.primaryColor}
+        organizationCoordinates={membership.contactLatitude !== null && membership.contactLongitude !== null
+          ? { latitude: membership.contactLatitude, longitude: membership.contactLongitude }
+          : null}
+        submitLabel="Guardar cambios"
+      />
       <PropertyImages
         images={imagesWithUrls}
         organizationId={membership.id}

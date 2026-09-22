@@ -79,14 +79,15 @@ try {
   await sql.begin(async (transaction) => {
     await transaction.unsafe(
        `insert into organizations
-        (id, name, slug, custom_domain, site_variant, whatsapp_phone, contact_address,
-         contact_email, contact_phone, logo_path, primary_color, hero_image_path,
-         hero_title, hero_subtitle)
-       values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)`,
+         (id, name, slug, property_code_prefix, custom_domain, site_variant, whatsapp_phone, contact_address,
+          contact_email, contact_phone, logo_path, primary_color, hero_image_path,
+          hero_title, hero_subtitle)
+       values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)`,
       [
         organizationId,
         args.name.trim(),
         slug,
+        propertyCodePrefix(slug),
         customDomain,
         siteVariant,
         normalizePhone(args.whatsapp),
@@ -137,6 +138,11 @@ function parseArgs(values) {
 function nullable(value) {
   const normalized = value?.trim();
   return normalized ? normalized : null;
+}
+
+function propertyCodePrefix(slug) {
+  const normalized = slug.replace(/[^a-z0-9]/gi, "").toUpperCase();
+  return (normalized || "PROP").slice(0, 5).padEnd(3, "X");
 }
 
 function normalizePhone(value) {

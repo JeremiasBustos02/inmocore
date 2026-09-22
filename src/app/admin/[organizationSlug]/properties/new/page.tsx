@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import { requireAuthenticatedUserId } from "@/lib/auth";
 import { requireOrganizationMembership } from "@/lib/organizations";
 import { createProperty } from "../actions";
+import { geocodePropertyAddress } from "../../geocoding-actions";
 import { PropertyForm } from "../property-form";
 
 type NewPropertyPageProps = {
@@ -33,6 +34,11 @@ export default async function NewPropertyPage({ params, searchParams }: NewPrope
         action={action}
         cancelHref={propertiesHref}
         error={error}
+        geocodeAction={geocodePropertyAddress.bind(null, organizationSlug)}
+        markerColor={membership.primaryColor}
+        organizationCoordinates={membership.contactLatitude !== null && membership.contactLongitude !== null
+          ? { latitude: membership.contactLatitude, longitude: membership.contactLongitude }
+          : null}
         pendingLabel="Creando…"
         submitLabel="Crear propiedad y continuar"
       />

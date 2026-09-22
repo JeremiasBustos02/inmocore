@@ -7,6 +7,7 @@ import { db } from "@/db";
 import { organizations } from "@/db/schema";
 import { requireAuthenticatedUserId } from "@/lib/auth";
 import { requireOrganizationMembership } from "@/lib/organizations";
+import { parseCoordinates } from "@/lib/location";
 import {
   MAX_ORGANIZATION_ASSET_SIZE,
   ORGANIZATION_ASSETS_BUCKET,
@@ -83,9 +84,14 @@ export async function updateOrganizationSettings(
   const contactEmail = readOptionalText(formData, "contactEmail", 254)?.toLowerCase() ?? null;
   const contactPhone = readOptionalText(formData, "contactPhone", 30);
   const contactAddress = readOptionalText(formData, "contactAddress", 180);
+  const contactHours = readOptionalText(formData, "contactHours", 1000);
   const heroTitle = readOptionalText(formData, "heroTitle", 120);
   const heroSubtitle = readOptionalText(formData, "heroSubtitle", 240);
   const whatsappPhone = readOptionalText(formData, "whatsappPhone", 20)?.replace(/[+().\s-]/g, "") ?? null;
+  const coordinates = parseCoordinates(
+    formData.get("latitude"),
+    formData.get("longitude"),
+  );
 
   if (primaryColor && !HEX_COLOR_PATTERN.test(primaryColor)) {
     redirect(`${adminOrganizationPath(organizationSlug)}?settings=invalid-color`);
@@ -99,6 +105,9 @@ export async function updateOrganizationSettings(
   if (whatsappPhone && !/^\d{8,15}$/.test(whatsappPhone)) {
     redirect(`${adminOrganizationPath(organizationSlug)}?settings=invalid-whatsapp`);
   }
+  if (coordinates === undefined) {
+    redirect(`${adminOrganizationPath(organizationSlug)}?settings=invalid-location`);
+  }
 
   await db
     .update(organizations)
@@ -107,6 +116,9 @@ export async function updateOrganizationSettings(
       contactEmail,
       contactPhone,
       contactAddress,
+      contactHours,
+      contactLatitude: coordinates?.latitude ?? null,
+      contactLongitude: coordinates?.longitude ?? null,
       primaryColor,
       heroTitle,
       heroSubtitle,

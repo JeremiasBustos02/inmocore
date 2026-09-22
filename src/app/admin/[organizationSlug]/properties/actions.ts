@@ -4,8 +4,10 @@ import { and, eq } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { notFound, redirect } from "next/navigation";
 import { db } from "@/db";
-import { properties } from "@/db/schema";
+import { locationVisibilities, properties } from "@/db/schema";
 import { requireAuthenticatedUserId } from "@/lib/auth";
+import { parseCoordinates } from "@/lib/location";
+import { reservePropertyCode } from "@/lib/property-codes";
 import { requireOrganizationMembership } from "@/lib/organizations";
 import {
   currencies,
@@ -51,7 +53,6 @@ function optionalInteger(formData: FormData, name: string, minimum: number) {
 }
 
 function parsePropertyForm(formData: FormData) {
-  const reference = requiredText(formData, "reference");
   const title = requiredText(formData, "title");
   const operationType = enumValue(formData, "operationType", operationTypes);
   const propertyType = enumValue(formData, "propertyType", propertyTypes);
@@ -67,9 +68,17 @@ function parsePropertyForm(formData: FormData) {
   const coveredAreaM2 = optionalInteger(formData, "coveredAreaM2", 1);
   const totalAreaM2 = optionalInteger(formData, "totalAreaM2", 1);
   const currency = price === null ? null : enumValue(formData, "currency", currencies);
+  const coordinates = parseCoordinates(
+    formData.get("latitude"),
+    formData.get("longitude"),
+  );
+  const locationVisibility = enumValue(
+    formData,
+    "locationVisibility",
+    locationVisibilities,
+  );
 
   if (
-    !reference ||
     !title ||
     !operationType ||
     !propertyType ||
@@ -84,7 +93,9 @@ function parsePropertyForm(formData: FormData) {
     garageSpaces === undefined ||
     coveredAreaM2 === undefined ||
     totalAreaM2 === undefined ||
-    (price !== null && !currency)
+    (price !== null && !currency) ||
+    coordinates === undefined ||
+    !locationVisibility
   ) {
     return null;
   }
@@ -100,7 +111,6 @@ function parsePropertyForm(formData: FormData) {
     wantsPublished && (status === "available" || status === "reserved");
 
   return {
-    reference,
     title,
     description: optionalText(formData, "description"),
     operationType,
@@ -112,6 +122,9 @@ function parsePropertyForm(formData: FormData) {
     city,
     province,
     country,
+    latitude: coordinates?.latitude ?? null,
+    longitude: coordinates?.longitude ?? null,
+    locationVisibility,
     bedrooms,
     bathrooms,
     rooms,
@@ -153,26 +166,26 @@ export async function createProperty(
     redirect(`${propertiesPath(organizationSlug)}/new?error=invalid`);
   }
 
-  let duplicateReference = false;
   let createdProperty: { id: string } | undefined;
 
   try {
-    [createdProperty] = await db
-      .insert(properties)
-      .values({
-        organizationId: membership.id,
-        ...values,
-      })
-      .returning({ id: properties.id });
+    createdProperty = await db.transaction(async (tx) => {
+      const propertyCode = await reservePropertyCode(tx, membership.id);
+      const [property] = await tx
+        .insert(properties)
+        .values({
+          organizationId: membership.id,
+          propertyCode,
+          ...values,
+        })
+        .returning({ id: properties.id });
+      return property;
+    });
   } catch (error) {
-    if (!isUniqueViolation(error)) {
-      throw error;
+    if (isUniqueViolation(error)) {
+      redirect(`${propertiesPath(organizationSlug)}/new?error=code`);
     }
-    duplicateReference = true;
-  }
-
-  if (duplicateReference) {
-    redirect(`${propertiesPath(organizationSlug)}/new?error=reference`);
+    throw error;
   }
 
   if (!createdProperty) {
@@ -205,8 +218,6 @@ export async function updateProperty(
   }
 
   let updated: { id: string }[] = [];
-  let duplicateReference = false;
-
   try {
     updated = await db
       .update(properties)
@@ -219,14 +230,10 @@ export async function updateProperty(
       )
       .returning({ id: properties.id });
   } catch (error) {
-    if (!isUniqueViolation(error)) {
-      throw error;
+    if (isUniqueViolation(error)) {
+      redirect(`${editPath}?error=code`);
     }
-    duplicateReference = true;
-  }
-
-  if (duplicateReference) {
-    redirect(`${editPath}?error=reference`);
+    throw error;
   }
 
   if (updated.length === 0) {

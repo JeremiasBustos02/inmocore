@@ -73,7 +73,7 @@ export default async function PropertiesPage({
   if (search) {
     const searchCondition = or(
       ilike(properties.title, `%${search}%`),
-      ilike(properties.reference, `%${search}%`),
+       ilike(properties.propertyCode, `%${search}%`),
     );
     if (searchCondition) conditions.push(searchCondition);
   }
@@ -83,7 +83,7 @@ export default async function PropertiesPage({
   const propertyList = await db
     .select({
       id: properties.id,
-      reference: properties.reference,
+       propertyCode: properties.propertyCode,
       title: properties.title,
       operationType: properties.operationType,
       propertyType: properties.propertyType,
@@ -118,7 +118,7 @@ export default async function PropertiesPage({
       </header>
 
       <form className="grid gap-3 rounded-xl border bg-card p-4 md:grid-cols-[minmax(0,1fr)_180px_180px_auto]" method="get">
-        <Input aria-label="Buscar por título o referencia" name="search" placeholder="Buscar por título o referencia" defaultValue={search} />
+         <Input aria-label="Buscar por título o código" name="search" placeholder="Buscar por título o código" defaultValue={search} />
         <NativeSelect className="w-full" aria-label="Filtrar por estado" name="status" defaultValue={status ?? ""}>
           <NativeSelectOption value="">Todos los estados</NativeSelectOption>
           {propertyStatuses.map((value) => <NativeSelectOption key={value} value={value}>{propertyStatusLabels[value]}</NativeSelectOption>)}
@@ -147,7 +147,7 @@ export default async function PropertiesPage({
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Referencia</TableHead>
+                 <TableHead>Código</TableHead>
                 <TableHead>Título</TableHead>
                 <TableHead>Operación</TableHead>
                 <TableHead>Tipo</TableHead>
@@ -164,7 +164,7 @@ export default async function PropertiesPage({
 
                 return (
                   <TableRow key={property.id}>
-                    <TableCell className="font-medium">{property.reference}</TableCell>
+                   <TableCell className="font-medium">{property.propertyCode}</TableCell>
                     <TableCell className="max-w-64 truncate">{property.title}</TableCell>
                     <TableCell>{operationTypeLabels[property.operationType]}</TableCell>
                     <TableCell>{propertyTypeLabels[property.propertyType]}</TableCell>

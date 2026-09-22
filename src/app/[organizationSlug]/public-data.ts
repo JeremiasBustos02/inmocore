@@ -24,6 +24,12 @@ import {
 import { PROPERTY_IMAGES_BUCKET } from "@/lib/property-images";
 import { getOrganizationAssetUrl } from "@/lib/organization-assets";
 import {
+  getPublicPropertyAddress,
+  getPublicPropertyLocationLabel,
+  getPublicPropertyLocation,
+  type PublicPropertyLocation,
+} from "@/lib/location";
+import {
   CUSTOM_DOMAIN_HEADER,
   getCustomDomainFromRoute,
   normalizeCustomDomain,
@@ -45,6 +51,7 @@ export type PublicProperty = {
   priceAmount: number | null;
   currency: "ARS" | "USD" | null;
   city: string;
+  locationLabel: string;
   bedrooms: number | null;
   bathrooms: number | null;
   totalAreaM2: number | null;
@@ -66,7 +73,7 @@ export type PublicPropertyFilters = {
 };
 
 export type PublicPropertyDetail = Omit<PublicProperty, "coverUrl"> & {
-  reference: string;
+  propertyCode: string;
   description: string | null;
   address: string | null;
   province: string;
@@ -74,6 +81,8 @@ export type PublicPropertyDetail = Omit<PublicProperty, "coverUrl"> & {
   rooms: number | null;
   garageSpaces: number | null;
   coveredAreaM2: number | null;
+  location: PublicPropertyLocation | null;
+  locationVisibility: "exact" | "approximate" | "hidden";
   images: Array<{ id: string; url: string }>;
 };
 
@@ -172,6 +181,8 @@ export const getPublicOrganization = cache(async (organizationSlug: string) => {
       isDemo: organizations.isDemo,
       whatsappPhone: organizations.whatsappPhone,
       contactAddress: organizations.contactAddress,
+      contactLatitude: organizations.contactLatitude,
+      contactLongitude: organizations.contactLongitude,
       contactEmail: organizations.contactEmail,
       contactPhone: organizations.contactPhone,
       logoPath: organizations.logoPath,
@@ -190,6 +201,16 @@ export const getPublicOrganization = cache(async (organizationSlug: string) => {
 
   return organization ?? null;
 });
+
+export async function getPublicOrganizationContactHours(organizationId: string) {
+  const [organization] = await db
+    .select({ contactHours: organizations.contactHours })
+    .from(organizations)
+    .where(eq(organizations.id, organizationId))
+    .limit(1);
+
+  return organization?.contactHours ?? null;
+}
 
 export function getPublicOrganizationAssetUrl(storagePath: string | null) {
   return storagePath ? getOrganizationAssetUrl(storagePath) : null;
@@ -248,6 +269,9 @@ export async function getPublicHomeData(organizationId: string) {
       priceAmount: properties.priceAmount,
       currency: properties.currency,
       city: properties.city,
+      address: properties.address,
+      province: properties.province,
+      locationVisibility: properties.locationVisibility,
       bedrooms: properties.bedrooms,
       bathrooms: properties.bathrooms,
       totalAreaM2: properties.totalAreaM2,
@@ -291,10 +315,19 @@ export async function getPublicHomeData(organizationId: string) {
   }
 
   return propertyList.map(
-    (property): PublicProperty => ({
-      ...property,
-      coverUrl: coverByProperty.get(property.id) ?? null,
-    }),
+      (property): PublicProperty => {
+        const { address, province, locationVisibility, ...publicProperty } = property;
+        return {
+          ...publicProperty,
+          locationLabel: getPublicPropertyLocationLabel({
+            address,
+            city: property.city,
+            province,
+            visibility: locationVisibility,
+          }),
+          coverUrl: coverByProperty.get(property.id) ?? null,
+        };
+      },
   );
 }
 
@@ -375,6 +408,9 @@ export async function getPublicProperties(
       priceAmount: properties.priceAmount,
       currency: properties.currency,
       city: properties.city,
+      address: properties.address,
+      province: properties.province,
+      locationVisibility: properties.locationVisibility,
       bedrooms: properties.bedrooms,
       bathrooms: properties.bathrooms,
       totalAreaM2: properties.totalAreaM2,
@@ -415,10 +451,19 @@ export async function getPublicProperties(
 
   return {
     properties: propertyList.map(
-      (property): PublicProperty => ({
-        ...property,
-        coverUrl: coverByProperty.get(property.id) ?? null,
-      }),
+      (property): PublicProperty => {
+        const { address, province, locationVisibility, ...publicProperty } = property;
+        return {
+          ...publicProperty,
+          locationLabel: getPublicPropertyLocationLabel({
+            address,
+            city: property.city,
+            province,
+            visibility: locationVisibility,
+          }),
+          coverUrl: coverByProperty.get(property.id) ?? null,
+        };
+      },
     ),
     total,
     page,
@@ -463,7 +508,7 @@ export const getPublicPropertyDetail = cache(async (
     db
       .select({
         id: properties.id,
-        reference: properties.reference,
+        propertyCode: properties.propertyCode,
         title: properties.title,
         description: properties.description,
         operationType: properties.operationType,
@@ -474,6 +519,9 @@ export const getPublicPropertyDetail = cache(async (
         city: properties.city,
         province: properties.province,
         country: properties.country,
+        latitude: properties.latitude,
+        longitude: properties.longitude,
+        locationVisibility: properties.locationVisibility,
         bedrooms: properties.bedrooms,
         bathrooms: properties.bathrooms,
         rooms: properties.rooms,
@@ -510,8 +558,23 @@ export const getPublicPropertyDetail = cache(async (
 
   if (!property) return null;
 
+  const { latitude, longitude, ...publicProperty } = property;
+  const location = getPublicPropertyLocation(
+    latitude,
+    longitude,
+    property.locationVisibility,
+  );
+
   return {
-    ...property,
+    ...publicProperty,
+    address: getPublicPropertyAddress(property.address, property.locationVisibility),
+    locationLabel: getPublicPropertyLocationLabel({
+      address: property.address,
+      city: property.city,
+      province: property.province,
+      visibility: property.locationVisibility,
+    }),
+    location,
     images: imageRows.map(({ id, storagePath }) => ({
       id,
       url: getPublicImageUrl(storagePath),
@@ -546,6 +609,9 @@ export const getPublicSimilarProperties = cache(async (
       priceAmount: properties.priceAmount,
       currency: properties.currency,
       city: properties.city,
+      address: properties.address,
+      province: properties.province,
+      locationVisibility: properties.locationVisibility,
       bedrooms: properties.bedrooms,
       bathrooms: properties.bathrooms,
       totalAreaM2: properties.totalAreaM2,
@@ -582,9 +648,18 @@ export const getPublicSimilarProperties = cache(async (
   );
 
   return propertyList.map(
-    (property): PublicProperty => ({
-      ...property,
-      coverUrl: coverByProperty.get(property.id) ?? null,
-    }),
+    (property): PublicProperty => {
+      const { address, province, locationVisibility, ...publicProperty } = property;
+      return {
+        ...publicProperty,
+        locationLabel: getPublicPropertyLocationLabel({
+          address,
+          city: property.city,
+          province,
+          visibility: locationVisibility,
+        }),
+        coverUrl: coverByProperty.get(property.id) ?? null,
+      };
+    },
   );
 });

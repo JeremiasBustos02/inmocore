@@ -71,6 +71,27 @@
       "when": 1790039301317,
       "tag": "0009_same_lila_cheney",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1790107460360,
+      "tag": "0010_loving_night_thrasher",
+      "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1790110074941,
+      "tag": "0011_clammy_red_ghost",
+      "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1790112296605,
+      "tag": "0012_pink_kylun",
+      "breakpoints": true
     }
   ]
 }

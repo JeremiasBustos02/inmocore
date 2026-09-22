@@ -47,11 +47,16 @@ export const propertyStatuses = [
   "archived",
 ] as const;
 export const currencies = ["ARS", "USD"] as const;
+export const locationVisibilities = ["exact", "approximate", "hidden"] as const;
 
 export const operationType = pgEnum("operation_type", operationTypes);
 export const propertyType = pgEnum("property_type", propertyTypes);
 export const propertyStatus = pgEnum("property_status", propertyStatuses);
 export const propertyCurrency = pgEnum("currency", currencies);
+export const locationVisibility = pgEnum(
+  "location_visibility",
+  locationVisibilities,
+);
 
 export const organizations = pgTable(
   "organizations",
@@ -64,6 +69,11 @@ export const organizations = pgTable(
     isDemo: boolean("is_demo").default(false).notNull(),
     whatsappPhone: text("whatsapp_phone"),
     contactAddress: text("contact_address"),
+    contactHours: text("contact_hours"),
+    contactLatitude: doublePrecision("contact_latitude"),
+    contactLongitude: doublePrecision("contact_longitude"),
+    propertyCodePrefix: text("property_code_prefix").default("PROP").notNull(),
+    propertyCodeSequence: integer("property_code_sequence").default(0).notNull(),
     contactEmail: text("contact_email"),
     contactPhone: text("contact_phone"),
     logoPath: text("logo_path"),
@@ -90,6 +100,26 @@ export const organizations = pgTable(
     check(
       "organizations_site_variant_valid",
       sql`${table.siteVariant} in ('default', 'editorial')`,
+    ),
+    check(
+      "organizations_property_code_prefix_valid",
+      sql`${table.propertyCodePrefix} ~ '^[A-Z0-9]{3,5}$'`,
+    ),
+    check(
+      "organizations_property_code_sequence_non_negative",
+      sql`${table.propertyCodeSequence} >= 0`,
+    ),
+    check(
+      "organizations_contact_coordinates_complete",
+      sql`(${table.contactLatitude} is null and ${table.contactLongitude} is null) or (${table.contactLatitude} is not null and ${table.contactLongitude} is not null)`,
+    ),
+    check(
+      "organizations_contact_latitude_valid",
+      sql`${table.contactLatitude} is null or ${table.contactLatitude} between -90 and 90`,
+    ),
+    check(
+      "organizations_contact_longitude_valid",
+      sql`${table.contactLongitude} is null or ${table.contactLongitude} between -180 and 180`,
     ),
     pgPolicy("members can read organizations", {
       for: "select",
@@ -136,7 +166,8 @@ export const properties = pgTable(
     organizationId: uuid("organization_id")
       .notNull()
       .references(() => organizations.id, { onDelete: "cascade" }),
-    reference: text("reference").notNull(),
+    reference: text("reference"),
+    propertyCode: text("property_code").notNull(),
     title: text("title").notNull(),
     description: text("description"),
     operationType: operationType("operation_type").notNull(),
@@ -150,6 +181,9 @@ export const properties = pgTable(
     country: text("country").default("Argentina").notNull(),
     latitude: doublePrecision("latitude"),
     longitude: doublePrecision("longitude"),
+    locationVisibility: locationVisibility("location_visibility")
+      .default("exact")
+      .notNull(),
     bedrooms: integer("bedrooms"),
     bathrooms: integer("bathrooms"),
     rooms: integer("rooms"),
@@ -169,6 +203,10 @@ export const properties = pgTable(
     unique("properties_organization_reference_unique").on(
       table.organizationId,
       table.reference,
+    ),
+    unique("properties_organization_property_code_unique").on(
+      table.organizationId,
+      table.propertyCode,
     ),
     index("properties_organization_status_idx").on(
       table.organizationId,
@@ -202,6 +240,18 @@ export const properties = pgTable(
     check(
       "properties_price_amount_non_negative",
       sql`${table.priceAmount} >= 0`,
+    ),
+    check(
+      "properties_coordinates_complete",
+      sql`(${table.latitude} is null and ${table.longitude} is null) or (${table.latitude} is not null and ${table.longitude} is not null)`,
+    ),
+    check(
+      "properties_latitude_valid",
+      sql`${table.latitude} is null or ${table.latitude} between -90 and 90`,
+    ),
+    check(
+      "properties_longitude_valid",
+      sql`${table.longitude} is null or ${table.longitude} between -180 and 180`,
     ),
     pgPolicy("members can read properties", {
       for: "select",

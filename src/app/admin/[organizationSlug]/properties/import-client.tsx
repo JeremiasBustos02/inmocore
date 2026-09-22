@@ -72,7 +72,7 @@ export function PropertyImportClient({ organizationSlug }: { organizationSlug: s
 
       <section className="rounded-xl border bg-card p-5">
         <h2 className="text-lg font-semibold">Columnas soportadas</h2>
-        <p className="mt-2 text-sm text-muted-foreground">Obligatorias: Referencia, Título, Operación, Tipo, Ciudad y Provincia. Opcionales: Estado, Precio, Moneda, Publicada, Destacada, Dirección, País, Descripción, Dormitorios, Baños, Ambientes, Cocheras, Superficie cubierta y Superficie total.</p>
+        <p className="mt-2 text-sm text-muted-foreground">Obligatorias: Título, Operación, Tipo, Ciudad y Provincia. Referencia es opcional y se conserva como dato externo. El código interno se genera automáticamente. También son opcionales: Estado, Precio, Moneda, Publicada, Destacada, Dirección, País, Descripción, Dormitorios, Baños, Ambientes, Cocheras, Superficie cubierta y Superficie total.</p>
         <p className="mt-2 text-sm text-muted-foreground">Se aceptan valores humanos en español, como Venta, Departamento, Disponible, Borrador, Sí y No. Si no se informa País, Estado o Publicada, se usan Argentina, Borrador y No.</p>
       </section>
 

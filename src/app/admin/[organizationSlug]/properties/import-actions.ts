@@ -5,6 +5,7 @@ import * as XLSX from "xlsx";
 import { db } from "@/db";
 import { properties } from "@/db/schema";
 import { requireAuthenticatedUserId } from "@/lib/auth";
+import { reservePropertyCode } from "@/lib/property-codes";
 import { requireOrganizationMembership } from "@/lib/organizations";
 import {
   currencies,
@@ -45,7 +46,7 @@ const headers = {
 
 type HeaderKey = keyof typeof headers;
 type ImportValues = {
-  reference: string;
+  reference: string | null;
   title: string;
   description: string | null;
   operationType: (typeof operationTypes)[number];
@@ -69,7 +70,7 @@ type ImportValues = {
 
 type ParsedRow = {
   row: number;
-  reference: string;
+  reference: string | null;
   title: string;
   values: ImportValues | null;
   errors: string[];
@@ -176,7 +177,7 @@ function boundedText(value: unknown, label: string, errors: string[], required =
 function parseRow(raw: unknown[], columns: Map<HeaderKey, number>, row: number): ParsedRow {
   const get = (key: HeaderKey) => raw[columns.get(key) ?? -1];
   const errors: string[] = [];
-  const reference = boundedText(get("reference"), "Referencia", errors, true) ?? "";
+  const reference = boundedText(get("reference"), "Referencia", errors);
   const title = boundedText(get("title"), "Título", errors, true) ?? "";
   const operationType = parseEnum(get("operationType"), operationTypes, operationTypeLabels);
   const propertyType = parseEnum(get("propertyType"), propertyTypes, propertyTypeLabels);
@@ -250,7 +251,7 @@ async function parseFile(file: File): Promise<ParsedFile> {
       if (headers[key].some((alias) => normalize(alias) === normalized)) columns.set(key, index);
     });
   });
-  const requiredHeaders: HeaderKey[] = ["reference", "title", "operationType", "propertyType", "city", "province"];
+  const requiredHeaders: HeaderKey[] = ["title", "operationType", "propertyType", "city", "province"];
   const missingHeaders = requiredHeaders.filter((key) => !columns.has(key));
   if (missingHeaders.length) {
     return { error: `Faltan columnas obligatorias: ${missingHeaders.map((key) => headers[key][0]).join(", ")}.` } as const;
@@ -264,7 +265,13 @@ async function parseFile(file: File): Promise<ParsedFile> {
 async function buildPreview(file: File, organizationId: string): Promise<ImportPreview | ParseFailure> {
   const parsed = await parseFile(file);
   if ("error" in parsed) return parsed;
-  const references = [...new Set(parsed.rows.map((row) => row.reference).filter(Boolean))];
+  const references = [
+    ...new Set(
+      parsed.rows
+        .map((row) => row.reference)
+        .filter((reference): reference is string => Boolean(reference)),
+    ),
+  ];
   const existing = references.length
     ? await db.select({ reference: properties.reference }).from(properties).where(and(eq(properties.organizationId, organizationId), inArray(properties.reference, references)))
     : [];
@@ -321,7 +328,21 @@ export async function confirmPropertyImport(organizationSlug: string, formData: 
   const validRows = parsed.rows.filter((row) => !row.errors.length);
   const inserted = await db.transaction(async (tx) => {
     if (!validRows.length) return [];
-    return tx.insert(properties).values(validRows.map((row) => ({ organizationId: membership.id, ...row.values! }))).onConflictDoNothing({ target: [properties.organizationId, properties.reference] }).returning({ reference: properties.reference });
+    const insertedProperties: Array<{ propertyCode: string }> = [];
+    for (const row of validRows) {
+      const propertyCode = await reservePropertyCode(tx, membership.id);
+      const [property] = await tx
+        .insert(properties)
+        .values({
+          organizationId: membership.id,
+          propertyCode,
+          ...row.values!,
+        })
+        .onConflictDoNothing({ target: [properties.organizationId, properties.reference] })
+        .returning({ propertyCode: properties.propertyCode });
+      if (property) insertedProperties.push(property);
+    }
+    return insertedProperties;
   });
   return {
     ok: true,

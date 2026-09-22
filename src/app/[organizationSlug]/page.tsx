@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { ArrowRight, Mail, MapPin, MessageCircle, Phone } from "lucide-react";
+import { ArrowRight, Clock, Mail, MapPin, MessageCircle, Phone } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import { notFound } from "next/navigation";
@@ -9,6 +9,8 @@ import {
   getPublicPath,
 } from "@/lib/public-site";
 import { PropertyCard } from "./property-card";
+import { PublicMap } from "@/components/maps/public-map";
+import { getGoogleMapsSearchUrl } from "@/lib/location";
 import { PublicReveal } from "./public-reveal";
 import { PropertySearch } from "./property-search";
 import { PublicFooter } from "./public-footer";
@@ -18,6 +20,7 @@ import {
   getPublicHeroSuggestions,
   getPublicHomeData,
   getPublicOrganization,
+  getPublicOrganizationContactHours,
   getPublicOrganizationAssetUrl,
 } from "./public-data";
 import { PublicSiteVariant } from "./site-variants";
@@ -103,10 +106,11 @@ export default async function PublicHomePage({ params }: PublicHomePageProps) {
 
   if (!organization) notFound();
 
-  const [propertyList, cities, heroSuggestionData] = await Promise.all([
+  const [propertyList, cities, heroSuggestionData, contactHours] = await Promise.all([
     getPublicHomeData(organization.id),
     getPublicCities(organization.id),
     getPublicHeroSuggestions(organization.id),
+    getPublicOrganizationContactHours(organization.id),
   ]);
   const heroProperty = propertyList.find((property) => property.coverUrl);
   const heroImageUrl = getPublicOrganizationAssetUrl(organization.heroImagePath) ?? heroProperty?.coverUrl;
@@ -131,6 +135,16 @@ export default async function PublicHomePage({ params }: PublicHomePageProps) {
       params: { city },
     })),
   ].slice(0, 6);
+  const organizationLocation = organization.contactLatitude !== null && organization.contactLongitude !== null
+    ? {
+        kind: "exact" as const,
+        latitude: organization.contactLatitude,
+        longitude: organization.contactLongitude,
+      }
+    : null;
+  const organizationMapsHref = organizationLocation
+    ? getGoogleMapsSearchUrl(organizationLocation)
+    : null;
 
   return (
     <PublicSiteVariant siteVariant={organization.siteVariant}>
@@ -292,22 +306,23 @@ export default async function PublicHomePage({ params }: PublicHomePageProps) {
                   </p>
                </div>
 
-              {organization.contactAddress || organization.contactPhone || organization.contactEmail ? (
-              <div className="mt-14 grid border-y border-border md:grid-cols-3">
-               {organization.contactAddress ? (
-                 <a
-                   className="group flex min-h-28 items-center gap-4 border-b border-border py-7 transition-colors duration-200 hover:text-primary focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-primary md:border-b-0 md:pr-8"
-                   href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(organization.contactAddress)}`}
-                   rel="noopener noreferrer"
-                   target="_blank"
-                 >
-                   <MapPin aria-hidden="true" className="size-5 shrink-0 text-primary transition-transform duration-200 group-hover:-translate-y-0.5" strokeWidth={1.6} />
-                   <span className="min-w-0">
-                     <span className="block text-[11px] font-semibold tracking-[0.2em] text-muted-foreground">VISITANOS</span>
-                     <span className="mt-2 block text-base font-medium leading-6 break-words">{organization.contactAddress}</span>
-                   </span>
-                 </a>
-               ) : null}
+              {organization.contactAddress || contactHours || organization.contactPhone || organization.contactEmail ? (
+               <div className="mt-14 grid border-y border-border md:grid-cols-3">
+                {organization.contactAddress || contactHours ? (
+                  <div className="flex min-w-0 items-center gap-4 border-b border-border py-7 md:border-b-0 md:pr-8">
+                     <MapPin aria-hidden="true" className="size-5 shrink-0 text-primary" strokeWidth={1.6} />
+                     <div className="min-w-0">
+                       <span className="block text-[11px] font-semibold tracking-[0.2em] text-muted-foreground">VISITANOS</span>
+                       {organization.contactAddress ? <p className="mt-2 break-words text-base font-medium leading-6">{organization.contactAddress}</p> : null}
+                     </div>
+                     {contactHours ? (
+                         <div className={`${organization.contactAddress ? "mt-5" : "mt-2"} flex items-start gap-2.5`}>
+                           <Clock aria-hidden="true" className="mt-0.5 size-4 shrink-0 text-muted-foreground" strokeWidth={1.7} />
+                           <p className="min-w-0 whitespace-pre-line break-words text-sm leading-6 text-muted-foreground">{contactHours}</p>
+                         </div>
+                       ) : null}
+                  </div>
+                ) : null}
                {organization.contactPhone ? (
                  <a
                    className="group flex min-h-28 items-center gap-4 border-b border-border py-7 transition-colors duration-200 hover:text-primary focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-primary md:border-b-0 md:border-l md:px-8"
@@ -335,7 +350,7 @@ export default async function PublicHomePage({ params }: PublicHomePageProps) {
               </div>
               ) : null}
 
-             {organization.whatsappPhone ? (
+              {organization.whatsappPhone ? (
                <a
                   className="group mt-12 inline-flex min-h-14 w-full cursor-pointer items-center justify-center gap-3 rounded-lg bg-primary px-6 text-sm font-semibold text-primary-foreground transition-[background-color,transform] duration-200 hover:-translate-y-0.5 hover:bg-primary/90 active:scale-[0.98] focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-primary sm:w-fit"
                  href={`https://wa.me/${organization.whatsappPhone}`}
@@ -346,8 +361,28 @@ export default async function PublicHomePage({ params }: PublicHomePageProps) {
                  <span>Escribinos por WhatsApp</span>
                  <ArrowRight aria-hidden="true" className="size-4 transition-transform duration-200 group-hover:translate-x-1" />
                </a>
-             ) : null}
-             </div>
+              ) : null}
+              {organizationLocation ? (
+                <div className="mt-12">
+                  <PublicMap
+                    className="h-[260px] w-full overflow-hidden rounded-lg border border-border bg-background sm:h-[320px]"
+                    location={organizationLocation}
+                    markerColor={organization.primaryColor}
+                  />
+                  {organizationMapsHref ? (
+                    <a
+                      aria-label="Abrir la ubicación de la inmobiliaria en Google Maps"
+                      className="mt-3 inline-flex w-fit cursor-pointer text-sm font-medium text-muted-foreground transition-colors hover:text-foreground focus-visible:rounded-sm focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-ring"
+                      href={organizationMapsHref}
+                      rel="noopener noreferrer"
+                      target="_blank"
+                    >
+                      Abrir en Google Maps ↗
+                    </a>
+                  ) : null}
+                </div>
+              ) : null}
+              </div>
             </PublicReveal>
          </div>
        </main>

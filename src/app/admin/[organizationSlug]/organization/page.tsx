@@ -1,10 +1,12 @@
 import { notFound } from "next/navigation";
 import { CheckCircle2, MinusCircle } from "lucide-react";
 import { AdminSubmitButton } from "@/components/admin/admin-submit-button";
+import { LocationPicker } from "@/components/maps/location-picker";
 import { requireAuthenticatedUserId } from "@/lib/auth";
 import { getOrganizationAssetUrl } from "@/lib/organization-assets";
 import { requireOrganizationMembership } from "@/lib/organizations";
 import { updateOrganizationSettings } from "../actions";
+import { geocodeOrganizationAddress } from "../geocoding-actions";
 import { OrganizationAssetUpload } from "./organization-asset-upload";
 
 type OrganizationPageProps = {
@@ -32,7 +34,10 @@ export default async function OrganizationPage({ params, searchParams }: Organiz
   const { settings } = await searchParams;
   const logoUrl = membership.logoPath ? getOrganizationAssetUrl(membership.logoPath) : null;
   const heroImageUrl = membership.heroImagePath ? getOrganizationAssetUrl(membership.heroImagePath) : null;
-  const hasContact = Boolean(membership.contactAddress || membership.contactPhone || membership.contactEmail);
+  const hasContact = Boolean(membership.contactAddress || membership.contactHours || membership.contactPhone || membership.contactEmail);
+  const coordinates = membership.contactLatitude !== null && membership.contactLongitude !== null
+    ? { latitude: membership.contactLatitude, longitude: membership.contactLongitude }
+    : null;
 
   return (
     <main className="mx-auto flex min-h-screen w-full max-w-4xl flex-col gap-8 px-4 py-8 sm:px-6 lg:py-10">
@@ -60,9 +65,23 @@ export default async function OrganizationPage({ params, searchParams }: Organiz
              <label className="flex flex-col gap-2 text-sm font-medium" htmlFor="whatsappPhone">WhatsApp<input className="h-10 rounded-lg border border-input bg-transparent px-3 font-normal outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50" defaultValue={membership.whatsappPhone ?? ""} id="whatsappPhone" inputMode="tel" maxLength={20} name="whatsappPhone" placeholder="5492266XXXXXX" /></label>
               <label className="flex flex-col gap-2 text-sm font-medium" htmlFor="contactPhone">Teléfono<input className="h-10 rounded-lg border border-input bg-transparent px-3 font-normal outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50" defaultValue={membership.contactPhone ?? ""} id="contactPhone" inputMode="tel" maxLength={30} name="contactPhone" placeholder="02266 123456" /></label>
               <label className="flex flex-col gap-2 text-sm font-medium sm:col-span-2" htmlFor="contactAddress">Dirección pública<input className="h-10 rounded-lg border border-input bg-transparent px-3 font-normal outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50" defaultValue={membership.contactAddress ?? ""} id="contactAddress" maxLength={180} name="contactAddress" placeholder="Dirección de la inmobiliaria" /></label>
+              <label className="flex flex-col gap-2 text-sm font-medium sm:col-span-2" htmlFor="contactHours">Horario de atención<textarea className="min-h-24 rounded-lg border border-input bg-transparent px-3 py-2 font-normal outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50" defaultValue={membership.contactHours ?? ""} id="contactHours" maxLength={1000} name="contactHours" placeholder="Escribí los horarios de atención" rows={4} /></label>
               <label className="flex flex-col gap-2 text-sm font-medium sm:col-span-2" htmlFor="contactEmail">Email público<input aria-invalid={settings === "invalid-email"} className="h-10 rounded-lg border border-input bg-transparent px-3 font-normal outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 aria-invalid:border-destructive" defaultValue={membership.contactEmail ?? ""} id="contactEmail" maxLength={254} name="contactEmail" placeholder="hola@inmobiliaria.com" type="email" />{settings === "invalid-email" ? <span className="text-sm font-normal text-destructive" role="alert">Ingresá un email válido.</span> : null}</label>
-          </div>
-        </section>
+           </div>
+           <div className="flex flex-col gap-3 border-t pt-5">
+             <div>
+               <h3 className="font-medium">Ubicación de la inmobiliaria</h3>
+               <p className="mt-1 text-sm text-muted-foreground">Se mostrará en la sección Hablemos del sitio público.</p>
+             </div>
+             <LocationPicker
+               addressFieldNames={["contactAddress"]}
+               geocodeAction={geocodeOrganizationAddress.bind(null, organizationSlug)}
+               initialCoordinates={coordinates}
+               markerColor={membership.primaryColor}
+             />
+             {settings === "invalid-location" ? <p className="text-sm text-destructive" role="alert">La ubicación seleccionada no es válida.</p> : null}
+           </div>
+         </section>
 
         <section className="flex flex-col gap-5 rounded-xl border bg-card p-6" aria-labelledby="appearance-title">
           <div><h2 className="text-xl font-semibold" id="appearance-title">Apariencia</h2><p className="mt-1 text-sm text-muted-foreground">Un color principal para botones y acentos del sitio público.</p></div>

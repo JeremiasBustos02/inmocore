@@ -66,7 +66,7 @@ export function PropertyCard({ publicBasePath, property }: PropertyCardProps) {
           </div>
           <p className="mt-3 flex items-center gap-1.5 text-sm text-muted-foreground">
             <MapPin aria-hidden="true" className="size-3.5 shrink-0" strokeWidth={1.8} />
-            <span className="truncate">{property.city}</span>
+            <span className="min-w-0 truncate">{property.locationLabel}</span>
           </p>
           <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-2 border-t border-border/70 pt-3 text-xs text-muted-foreground">
             <span>{publicPropertyTypeLabels[property.propertyType]}</span>

@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { AdminSubmitButton } from "@/components/admin/admin-submit-button";
+import { LocationPicker } from "@/components/maps/location-picker";
 import { buttonVariants } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
@@ -19,6 +20,7 @@ import {
 } from "@/components/ui/native-select";
 import { Textarea } from "@/components/ui/textarea";
 import type { properties } from "@/db/schema";
+import type { Coordinates } from "@/lib/location";
 import {
   currencies,
   operationTypeLabels,
@@ -31,7 +33,7 @@ import {
 
 type PropertyFormValues = Pick<
   typeof properties.$inferSelect,
-  | "reference"
+   | "propertyCode"
   | "title"
   | "description"
   | "operationType"
@@ -43,6 +45,9 @@ type PropertyFormValues = Pick<
   | "city"
   | "province"
   | "country"
+  | "latitude"
+  | "longitude"
+  | "locationVisibility"
   | "rooms"
   | "bedrooms"
   | "bathrooms"
@@ -60,6 +65,12 @@ type PropertyFormProps = {
   initialValues?: PropertyFormValues;
   submitLabel: string;
   pendingLabel?: string;
+  geocodeAction: (query: string) => Promise<
+    | { ok: true; coordinates: Coordinates }
+    | { ok: false; reason: "not-found" | "unavailable" }
+  >;
+  organizationCoordinates?: Coordinates | null;
+  markerColor?: string | null;
 };
 
 export function PropertyForm({
@@ -69,14 +80,21 @@ export function PropertyForm({
   initialValues,
   submitLabel,
   pendingLabel = "Guardando…",
+  geocodeAction,
+  organizationCoordinates,
+  markerColor,
 }: PropertyFormProps) {
+  const initialCoordinates = initialValues?.latitude !== null && initialValues?.latitude !== undefined && initialValues.longitude !== null && initialValues.longitude !== undefined
+    ? { latitude: initialValues.latitude, longitude: initialValues.longitude }
+    : null;
+
   return (
     <form action={action} className="flex flex-col gap-8">
-      {error && error !== "reference" ? (
+      {error ? (
         <Field data-invalid>
           <FieldError>
-            {error === "reference"
-              ? "Ya existe una propiedad con esa referencia en esta inmobiliaria."
+            {error === "code"
+              ? "No se pudo generar un código único para la propiedad. Intentá nuevamente."
               : "Revisá los campos obligatorios y los valores numéricos."}
           </FieldError>
         </Field>
@@ -86,11 +104,15 @@ export function PropertyForm({
         <FieldLegend>Información</FieldLegend>
         <FieldGroup>
           <div className="grid gap-5 md:grid-cols-2">
-            <Field>
-              <FieldLabel htmlFor="reference">Referencia</FieldLabel>
-              <Input aria-invalid={error === "reference"} id="reference" name="reference" defaultValue={initialValues?.reference} required />
-              {error === "reference" ? <FieldError>Ya existe una propiedad con esa referencia en esta inmobiliaria.</FieldError> : null}
-            </Field>
+            {initialValues?.propertyCode ? (
+              <Field>
+              <FieldLabel>Código de propiedad</FieldLabel>
+                <p className="flex h-10 items-center rounded-lg border border-input bg-muted px-3 text-sm font-medium text-muted-foreground" aria-label="Código de propiedad generado">
+                  {initialValues.propertyCode}
+                </p>
+                <FieldDescription>Generado automáticamente</FieldDescription>
+              </Field>
+            ) : null}
             <Field>
               <FieldLabel htmlFor="title">Título</FieldLabel>
               <Input id="title" name="title" defaultValue={initialValues?.title} required />
@@ -120,6 +142,7 @@ export function PropertyForm({
               </NativeSelect>
             </Field>
           </div>
+          
         </FieldGroup>
       </FieldSet>
 
@@ -163,6 +186,27 @@ export function PropertyForm({
               <Input id="country" name="country" defaultValue={initialValues?.country ?? "Argentina"} required />
             </Field>
           </div>
+          <Field>
+            <FieldLabel>Ubicación en el mapa</FieldLabel>
+            <LocationPicker
+              addressFieldNames={["address", "city", "province", "country"]}
+              fallbackCoordinates={organizationCoordinates}
+              geocodeAction={geocodeAction}
+              initialCoordinates={initialCoordinates}
+              markerColor={markerColor}
+            />
+          </Field>
+          <Field>
+            <FieldLabel htmlFor="locationVisibility">Ubicación pública</FieldLabel>
+            <NativeSelect className="w-full md:max-w-sm" id="locationVisibility" name="locationVisibility" defaultValue={initialValues?.locationVisibility ?? "exact"}>
+              <NativeSelectOption value="exact">Exacta</NativeSelectOption>
+              <NativeSelectOption value="approximate">Aproximada</NativeSelectOption>
+              <NativeSelectOption value="hidden">Oculta</NativeSelectOption>
+            </NativeSelect>
+            <FieldDescription>
+              Exacta muestra el punto seleccionado. Aproximada muestra solamente una zona. Oculta no muestra el mapa.
+            </FieldDescription>
+          </Field>
         </FieldGroup>
       </FieldSet>
 
