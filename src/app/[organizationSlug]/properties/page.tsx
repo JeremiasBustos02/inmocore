@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { getPublicSitePath, getPublicSiteUrl } from "@/lib/public-site";
+import { getOrganizationPublicUrl, getPublicBasePath, getPublicPath } from "@/lib/public-site";
 import { Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty";
 import { PropertyCard } from "../property-card";
 import { PublicFooter } from "../public-footer";
@@ -36,7 +36,7 @@ export async function generateMetadata({
 
   if (!organization) return { robots: { index: false, follow: false } };
 
-  const catalogPath = `/${encodeURIComponent(organization.slug)}/properties`;
+  const canonical = getOrganizationPublicUrl(organization, "/properties");
   const hasFilters = hasQueryParameters(rawSearchParams);
   const title = `Propiedades | ${organization.name}`;
   const description = `Propiedades en venta y alquiler publicadas por ${organization.name}.`;
@@ -44,10 +44,8 @@ export async function generateMetadata({
   return {
     title,
     description,
-    openGraph: { title, description, type: "website" },
-    ...(getPublicSiteUrl()
-      ? { alternates: { canonical: getPublicSitePath(catalogPath) } }
-      : {}),
+    openGraph: { title, description, type: "website", ...(canonical ? { url: canonical } : {}) },
+    ...(canonical ? { alternates: { canonical } } : {}),
     ...(hasFilters ? { robots: { index: false, follow: true } } : {}),
   };
 }
@@ -66,7 +64,8 @@ export default async function PublicPropertiesPage({
     getPublicProperties(organization.id, filters),
     getPublicCities(organization.id),
   ]);
-  const catalogHref = `/${encodeURIComponent(organization.slug)}/properties`;
+  const publicBasePath = getPublicBasePath(organizationSlug, organization.slug);
+  const catalogHref = getPublicPath(publicBasePath, "/properties");
   const title = filters.operation === "sale"
     ? "Propiedades en venta"
     : filters.operation === "rent"
@@ -80,7 +79,7 @@ export default async function PublicPropertiesPage({
 
   return (
     <div className="public-site flex min-h-screen flex-col overflow-x-hidden">
-       <PublicHeader organizationName={organization.name} organizationSlug={organization.slug} logoUrl={getPublicOrganizationAssetUrl(organization.logoPath)} />
+       <PublicHeader organizationName={organization.name} publicBasePath={publicBasePath} logoUrl={getPublicOrganizationAssetUrl(organization.logoPath)} />
       <main className="flex-1" id="contenido-principal">
         <section className="mx-auto w-full max-w-[1320px] px-5 py-12 sm:px-8 sm:py-16 lg:px-10 lg:py-20">
           <div className="max-w-3xl">
@@ -96,7 +95,7 @@ export default async function PublicPropertiesPage({
             <CatalogFilters
               cities={cities}
               filters={filters}
-              organizationSlug={organization.slug}
+               publicBasePath={publicBasePath}
             />
           </div>
 
@@ -113,7 +112,7 @@ export default async function PublicPropertiesPage({
               {result.properties.map((property) => (
                 <PropertyCard
                   key={property.id}
-                  organizationSlug={organization.slug}
+                  publicBasePath={publicBasePath}
                   property={property}
                 />
               ))}
@@ -167,7 +166,7 @@ export default async function PublicPropertiesPage({
          contactEmail={organization.contactEmail}
         contactPhone={organization.contactPhone}
         organizationName={organization.name}
-        organizationSlug={organization.slug}
+        publicBasePath={publicBasePath}
          whatsappPhone={organization.whatsappPhone}
          logoUrl={getPublicOrganizationAssetUrl(organization.logoPath)}
       />

@@ -59,6 +59,8 @@ export const organizations = pgTable(
     id: uuid("id").defaultRandom().primaryKey(),
     name: text("name").notNull(),
     slug: text("slug").notNull().unique(),
+    customDomain: text("custom_domain").unique(),
+    siteVariant: text("site_variant").default("default").notNull(),
     whatsappPhone: text("whatsapp_phone"),
     contactAddress: text("contact_address"),
     contactEmail: text("contact_email"),
@@ -76,6 +78,18 @@ export const organizations = pgTable(
       .notNull(),
   },
   (table) => [
+    check(
+      "organizations_custom_domain_normalized",
+      sql`${table.customDomain} is null or (
+        ${table.customDomain} = lower(${table.customDomain})
+        and ${table.customDomain} ~ '^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?(?:\\.[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?)+$'
+        and length(${table.customDomain}) <= 253
+      )`,
+    ),
+    check(
+      "organizations_site_variant_valid",
+      sql`${table.siteVariant} in ('default', 'editorial')`,
+    ),
     pgPolicy("members can read organizations", {
       for: "select",
       to: authenticatedRole,

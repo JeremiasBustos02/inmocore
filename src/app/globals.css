@@ -147,6 +147,23 @@
   color: var(--foreground);
 }
 
+.public-site-editorial .public-site {
+  --muted: #f2efe9;
+  --border: #ded8ce;
+}
+
+@media (min-width: 768px) {
+  .public-site-editorial .public-hero-content {
+    align-items: flex-start;
+    text-align: left;
+  }
+
+  .public-site-editorial .public-hero-content > h1,
+  .public-site-editorial .public-hero-content > p {
+    max-width: 46rem;
+  }
+}
+
 .public-link {
   position: relative;
   transition: opacity 200ms ease;

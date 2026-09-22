@@ -1,4 +1,5 @@
 import { cache } from "react";
+import { headers } from "next/headers";
 import {
   and,
   asc,
@@ -22,6 +23,11 @@ import {
 } from "@/db/schema";
 import { PROPERTY_IMAGES_BUCKET } from "@/lib/property-images";
 import { getOrganizationAssetUrl } from "@/lib/organization-assets";
+import {
+  CUSTOM_DOMAIN_HEADER,
+  getCustomDomainFromRoute,
+  normalizeCustomDomain,
+} from "@/lib/public-site";
 
 export type PublicProperty = {
   id: string;
@@ -147,11 +153,21 @@ export function publicFiltersToSearchParams(
 }
 
 export const getPublicOrganization = cache(async (organizationSlug: string) => {
+  const customDomain = getCustomDomainFromRoute(organizationSlug);
+  if (customDomain) {
+    const trustedDomain = normalizeCustomDomain(
+      (await headers()).get(CUSTOM_DOMAIN_HEADER),
+    );
+    if (trustedDomain !== customDomain) return null;
+  }
+
   const [organization] = await db
     .select({
       id: organizations.id,
       name: organizations.name,
       slug: organizations.slug,
+      customDomain: organizations.customDomain,
+      siteVariant: organizations.siteVariant,
       whatsappPhone: organizations.whatsappPhone,
       contactAddress: organizations.contactAddress,
       contactEmail: organizations.contactEmail,
@@ -163,7 +179,11 @@ export const getPublicOrganization = cache(async (organizationSlug: string) => {
       heroSubtitle: organizations.heroSubtitle,
     })
     .from(organizations)
-    .where(eq(organizations.slug, organizationSlug))
+    .where(
+      customDomain
+        ? eq(organizations.customDomain, customDomain)
+        : eq(organizations.slug, organizationSlug),
+    )
     .limit(1);
 
   return organization ?? null;
@@ -175,7 +195,11 @@ export function getPublicOrganizationAssetUrl(storagePath: string | null) {
 
 export async function getPublicOrganizations() {
   return db
-    .select({ id: organizations.id, slug: organizations.slug })
+    .select({
+      id: organizations.id,
+      slug: organizations.slug,
+      customDomain: organizations.customDomain,
+    })
     .from(organizations)
     .orderBy(asc(organizations.slug));
 }
@@ -371,17 +395,24 @@ export async function getPublicProperties(
   };
 }
 
-export async function getPublicPropertyPaths() {
+export async function getPublicPropertyPaths(organizationId?: string) {
+  const conditions = [
+    eq(properties.isPublished, true),
+    ne(properties.status, "draft"),
+    ne(properties.status, "archived"),
+  ];
+  if (organizationId) conditions.push(eq(properties.organizationId, organizationId));
+
   return db
-    .select({ organizationSlug: organizations.slug, propertyId: properties.id })
+    .select({
+      organizationSlug: organizations.slug,
+      organizationCustomDomain: organizations.customDomain,
+      propertyId: properties.id,
+    })
     .from(properties)
     .innerJoin(organizations, eq(properties.organizationId, organizations.id))
     .where(
-      and(
-        eq(properties.isPublished, true),
-        ne(properties.status, "draft"),
-        ne(properties.status, "archived"),
-      ),
+      and(...conditions),
     )
     .orderBy(asc(organizations.slug), asc(properties.id));
 }

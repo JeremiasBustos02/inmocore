@@ -3,7 +3,11 @@ import { ArrowRight, Mail, MapPin, MessageCircle, Phone } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { getPublicSitePath, getPublicSiteUrl } from "@/lib/public-site";
+import {
+  getOrganizationPublicUrl,
+  getPublicBasePath,
+  getPublicPath,
+} from "@/lib/public-site";
 import { PropertyCard } from "./property-card";
 import { PropertySearch } from "./property-search";
 import { PublicFooter } from "./public-footer";
@@ -14,6 +18,7 @@ import {
   getPublicOrganization,
   getPublicOrganizationAssetUrl,
 } from "./public-data";
+import { PublicSiteVariant } from "./site-variants";
 
 type PublicHomePageProps = {
   params: Promise<{ organizationSlug: string }>;
@@ -30,6 +35,7 @@ export async function generateMetadata({
   const title = `${organization.name} | Propiedades`;
   const description = `Propiedades publicadas por ${organization.name}, disponibles para venta y alquiler.`;
   const heroImageUrl = getPublicOrganizationAssetUrl(organization.heroImagePath);
+  const canonical = getOrganizationPublicUrl(organization);
 
   return {
     title,
@@ -38,13 +44,12 @@ export async function generateMetadata({
       title,
       description,
       type: "website",
+      ...(canonical ? { url: canonical } : {}),
       ...(heroImageUrl
         ? { images: [{ url: heroImageUrl, alt: organization.heroTitle ?? organization.name }] }
         : {}),
     },
-    ...(getPublicSiteUrl()
-      ? { alternates: { canonical: getPublicSitePath(`/${encodeURIComponent(organization.slug)}`) } }
-      : {}),
+    ...(canonical ? { alternates: { canonical } } : {}),
   };
 }
 
@@ -82,13 +87,14 @@ export default async function PublicHomePage({ params }: PublicHomePageProps) {
   ]);
   const heroProperty = propertyList.find((property) => property.coverUrl);
   const heroImageUrl = getPublicOrganizationAssetUrl(organization.heroImagePath) ?? heroProperty?.coverUrl;
-  const homeHref = `/${encodeURIComponent(organization.slug)}`;
+  const publicBasePath = getPublicBasePath(organizationSlug, organization.slug);
 
   return (
+    <PublicSiteVariant siteVariant={organization.siteVariant}>
     <div className="public-site overflow-x-hidden">
       <PublicHeader
         organizationName={organization.name}
-        organizationSlug={organization.slug}
+        publicBasePath={publicBasePath}
         logoUrl={getPublicOrganizationAssetUrl(organization.logoPath)}
       />
 
@@ -114,7 +120,7 @@ export default async function PublicHomePage({ params }: PublicHomePageProps) {
             className={`absolute inset-0 ${heroImageUrl ? "bg-black/45" : "bg-black/5"}`}
           />
           <div
-            className={`relative mx-auto flex w-full max-w-[1320px] flex-col items-center px-5 pt-16 text-center sm:px-8 sm:pt-20 lg:px-10 lg:pt-24 ${heroProperty ? "text-white" : "text-foreground"}`}
+            className={`public-hero-content relative mx-auto flex w-full max-w-[1320px] flex-col items-center px-5 pt-16 text-center sm:px-8 sm:pt-20 lg:px-10 lg:pt-24 ${heroProperty ? "text-white" : "text-foreground"}`}
           >
             <h1
               className="w-full max-w-4xl text-balance text-[clamp(2.45rem,5vw,4.5rem)] font-semibold leading-[1.04] tracking-[-0.04em]"
@@ -126,7 +132,7 @@ export default async function PublicHomePage({ params }: PublicHomePageProps) {
                {organization.heroSubtitle ?? "Propiedades para vivir, invertir y proyectar con confianza."}
             </p>
             <div className="relative z-10 mt-7 w-full sm:mt-8">
-              <PropertySearch cities={cities} organizationSlug={organization.slug} />
+              <PropertySearch cities={cities} publicBasePath={publicBasePath} />
             </div>
           </div>
         </section>
@@ -150,7 +156,7 @@ export default async function PublicHomePage({ params }: PublicHomePageProps) {
             </div>
             <Link
               className="public-link flex w-fit items-center gap-2 text-sm font-semibold"
-              href={`${homeHref}/properties`}
+              href={getPublicPath(publicBasePath, "/properties")}
             >
               Ver todas
               <ArrowRight aria-hidden="true" className="size-4" />
@@ -162,7 +168,7 @@ export default async function PublicHomePage({ params }: PublicHomePageProps) {
               {propertyList.map((property) => (
                 <PropertyCard
                   key={property.id}
-                  organizationSlug={organization.slug}
+                  publicBasePath={publicBasePath}
                   property={property}
                 />
               ))}
@@ -186,7 +192,7 @@ export default async function PublicHomePage({ params }: PublicHomePageProps) {
               {propertyTypes.map((type) => (
                 <Link
                   className="group flex min-h-20 items-center justify-between border-r border-b border-border bg-background px-5 text-base font-semibold hover:bg-background focus-visible:outline-2 focus-visible:outline-offset-[-2px] sm:px-6"
-                  href={`${homeHref}/properties?type=${type.value}`}
+                    href={`${getPublicPath(publicBasePath, "/properties")}?type=${type.value}`}
                   key={type.value}
                 >
                   {type.label}
@@ -289,12 +295,13 @@ export default async function PublicHomePage({ params }: PublicHomePageProps) {
        <PublicFooter
         contactAddress={organization.contactAddress}
         organizationName={organization.name}
-        organizationSlug={organization.slug}
+        publicBasePath={publicBasePath}
         contactEmail={organization.contactEmail}
         contactPhone={organization.contactPhone}
         whatsappPhone={organization.whatsappPhone}
         logoUrl={getPublicOrganizationAssetUrl(organization.logoPath)}
       />
     </div>
+    </PublicSiteVariant>
   );
 }

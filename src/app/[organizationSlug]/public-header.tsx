@@ -1,20 +1,21 @@
 import { Menu } from "lucide-react";
 import Link from "next/link";
 import Image from "next/image";
+import { getPublicPath } from "@/lib/public-site";
 
 type PublicHeaderProps = {
   organizationName: string;
-  organizationSlug: string;
+  publicBasePath: string;
   logoUrl: string | null;
 };
 
 export function PublicHeader({
   organizationName,
-  organizationSlug,
+  publicBasePath,
   logoUrl,
 }: PublicHeaderProps) {
-  const homeHref = `/${encodeURIComponent(organizationSlug)}`;
-  const propertiesHref = `${homeHref}/properties`;
+  const homeHref = publicBasePath || "/";
+  const propertiesHref = getPublicPath(publicBasePath, "/properties");
   const links = [
     { label: "Inicio", href: homeHref },
     { label: "Propiedades", href: propertiesHref },

@@ -1,9 +1,10 @@
 import Image from "next/image";
 import Link from "next/link";
+import { getPublicPath } from "@/lib/public-site";
 
 type PublicFooterProps = {
   organizationName: string;
-  organizationSlug: string;
+  publicBasePath: string;
   contactAddress: string | null;
   contactEmail: string | null;
   contactPhone: string | null;
@@ -13,14 +14,15 @@ type PublicFooterProps = {
 
 export function PublicFooter({
   organizationName,
-  organizationSlug,
+  publicBasePath,
   contactAddress,
   contactEmail,
   contactPhone,
   whatsappPhone,
   logoUrl,
 }: PublicFooterProps) {
-  const homeHref = `/${encodeURIComponent(organizationSlug)}`;
+  const homeHref = publicBasePath || "/";
+  const propertiesHref = getPublicPath(publicBasePath, "/properties");
 
   return (
     <footer className="border-t border-border bg-muted/40">
@@ -34,9 +36,9 @@ export function PublicFooter({
         <nav aria-label="Navegación del pie" className="flex flex-col items-start gap-3 text-sm">
           <p className="mb-1 font-semibold text-foreground">Navegación</p>
           <Link className="public-link" href={homeHref}>Inicio</Link>
-          <Link className="public-link" href={`${homeHref}/properties`}>Propiedades</Link>
-          <Link className="public-link" href={`${homeHref}/properties?operation=sale`}>Comprar</Link>
-          <Link className="public-link" href={`${homeHref}/properties?operation=rent`}>Alquilar</Link>
+          <Link className="public-link" href={propertiesHref}>Propiedades</Link>
+          <Link className="public-link" href={`${propertiesHref}?operation=sale`}>Comprar</Link>
+          <Link className="public-link" href={`${propertiesHref}?operation=rent`}>Alquilar</Link>
         </nav>
         <div className="flex flex-col items-start gap-3 text-sm">
           <p className="mb-1 font-semibold text-foreground">Contacto</p>

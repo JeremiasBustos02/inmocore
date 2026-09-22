@@ -74,13 +74,13 @@ function FilterSelect({
 type CatalogFiltersProps = {
   cities: string[];
   filters: PublicPropertyFilters;
-  organizationSlug: string;
+  publicBasePath: string;
 };
 
 export function CatalogFilters({
   cities,
   filters,
-  organizationSlug,
+  publicBasePath,
 }: CatalogFiltersProps) {
   const legacyMinimum = filters.price === "over-250000" ? 250001 : undefined;
   const legacyMaximum = filters.price && filters.price !== "over-250000"
@@ -89,7 +89,7 @@ export function CatalogFilters({
 
   return (
     <form
-      action={`/${encodeURIComponent(organizationSlug)}/properties`}
+      action={`${publicBasePath}/properties`}
       autoComplete="off"
       className="rounded-lg border border-border bg-muted/45 p-4 sm:p-5"
       method="get"
@@ -180,7 +180,7 @@ export function CatalogFilters({
             className: "h-11 rounded-lg px-5",
             variant: "outline",
           })}
-          href={`/${encodeURIComponent(organizationSlug)}/properties`}
+          href={`${publicBasePath}/properties`}
         >
           Limpiar
         </Link>

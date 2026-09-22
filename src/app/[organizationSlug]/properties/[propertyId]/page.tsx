@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { ArrowLeft, MessageCircle } from "lucide-react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { getPublicSitePath, getPublicSiteUrl } from "@/lib/public-site";
+import { getOrganizationPublicUrl, getPublicBasePath, getPublicPath } from "@/lib/public-site";
 import { PublicFooter } from "../../public-footer";
 import { PublicHeader } from "../../public-header";
 import { getPublicOrganization, getPublicOrganizationAssetUrl, getPublicPropertyDetail, getPublicSimilarProperties } from "../../public-data";
@@ -38,23 +38,20 @@ export async function generateMetadata({
   const propertyTypeLabel = publicPropertyTypeLabels[property.propertyType];
   const propertyDescription = description || `${operationLabel} de ${propertyTypeLabel.toLowerCase()} en ${property.city}.`;
   const title = `${property.title} | ${property.city} | ${organization.name}`;
+  const canonical = getOrganizationPublicUrl(
+    organization,
+    `/properties/${property.id}`,
+  );
 
   return {
     title,
     description: propertyDescription,
-    ...(getPublicSiteUrl()
-      ? {
-          alternates: {
-            canonical: getPublicSitePath(
-              `/${encodeURIComponent(organization.slug)}/properties/${property.id}`,
-            ),
-          },
-        }
-      : {}),
+    ...(canonical ? { alternates: { canonical } } : {}),
     openGraph: {
       title,
       description: propertyDescription,
       type: "website",
+      ...(canonical ? { url: canonical } : {}),
       ...(property.images[0]
         ? {
             images: [{ url: property.images[0].url, alt: `${property.title} en ${property.city}` }],
@@ -81,7 +78,8 @@ export default async function PublicPropertyPage({ params }: PublicPropertyPageP
     property.city,
   );
 
-  const catalogHref = `/${encodeURIComponent(organization.slug)}/properties`;
+  const publicBasePath = getPublicBasePath(organizationSlug, organization.slug);
+  const catalogHref = getPublicPath(publicBasePath, "/properties");
   const features = [
     property.rooms !== null
       ? { label: property.rooms === 1 ? "Ambiente" : "Ambientes", value: property.rooms }
@@ -119,7 +117,7 @@ export default async function PublicPropertyPage({ params }: PublicPropertyPageP
 
   return (
     <div className="public-site flex min-h-screen flex-col overflow-x-hidden">
-       <PublicHeader organizationName={organization.name} organizationSlug={organization.slug} logoUrl={getPublicOrganizationAssetUrl(organization.logoPath)} />
+       <PublicHeader organizationName={organization.name} publicBasePath={publicBasePath} logoUrl={getPublicOrganizationAssetUrl(organization.logoPath)} />
       <main className="flex-1" id="contenido-principal">
         <article className="mx-auto w-full max-w-[1320px] px-5 py-10 sm:px-8 sm:py-14 lg:px-10 lg:py-16">
           <Link className="public-link inline-flex items-center gap-2 text-sm font-semibold" href={catalogHref}>
@@ -241,7 +239,7 @@ export default async function PublicPropertyPage({ params }: PublicPropertyPageP
               <div className="mt-7 flex snap-x snap-mandatory gap-6 overflow-x-auto pb-4 md:grid md:grid-cols-2 md:overflow-visible xl:grid-cols-3">
                 {similarProperties.map((similarProperty) => (
                   <div className="min-w-[82%] snap-start sm:min-w-[45%] md:min-w-0" key={similarProperty.id}>
-                    <PropertyCard organizationSlug={organization.slug} property={similarProperty} />
+                    <PropertyCard publicBasePath={publicBasePath} property={similarProperty} />
                   </div>
                 ))}
               </div>
@@ -254,7 +252,7 @@ export default async function PublicPropertyPage({ params }: PublicPropertyPageP
          contactEmail={organization.contactEmail}
         contactPhone={organization.contactPhone}
         organizationName={organization.name}
-        organizationSlug={organization.slug}
+        publicBasePath={publicBasePath}
          whatsappPhone={organization.whatsappPhone}
          logoUrl={getPublicOrganizationAssetUrl(organization.logoPath)}
       />

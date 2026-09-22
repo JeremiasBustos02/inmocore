@@ -14,6 +14,7 @@ Las variables se documentan en `.env.example`. Los comandos disponibles están e
 ## Operación
 
 - [Alta de clientes](docs/client-onboarding.md)
+- [Dominios personalizados](docs/custom-domains.md)
 - [Operación y mantenimiento](docs/operations.md)
 - [Backup y recuperación](docs/backup-and-recovery.md)
 - [Roadmap](docs/ROADMAP.md)

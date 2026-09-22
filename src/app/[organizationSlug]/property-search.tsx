@@ -13,7 +13,7 @@ import { publicPropertyTypeOptions } from "./public-property-options";
 
 type PropertySearchProps = {
   cities: string[];
-  organizationSlug: string;
+  publicBasePath: string;
 };
 
 const fieldClassName =
@@ -28,10 +28,10 @@ const priceRanges = [
   { label: "Más de 250.000", value: "over-250000" },
 ];
 
-export function PropertySearch({ cities, organizationSlug }: PropertySearchProps) {
+export function PropertySearch({ cities, publicBasePath }: PropertySearchProps) {
   return (
     <form
-      action={`/${encodeURIComponent(organizationSlug)}/properties`}
+      action={`${publicBasePath}/properties`}
       autoComplete="off"
       className="mx-auto w-full min-w-0 lg:w-[90%]"
       method="get"

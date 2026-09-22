@@ -17,7 +17,7 @@ No crear SQL de schema manualmente ni agregar entradas a `_journal.json` a mano.
 
 Requeridas: `DATABASE_URL`, `DIRECT_DATABASE_URL` (migraciones y backup), `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`.
 
-Opcionales: `NEXT_PUBLIC_SITE_URL` (URLs absolutas, sitemap y robots), `SUPABASE_INVITE_REDIRECT_URL` (redirección de invitaciones) y `SUPABASE_SERVICE_ROLE_KEY` (sólo para `pnpm client:onboard`, nunca para el navegador).
+Opcionales: `NEXT_PUBLIC_SITE_URL` (origen de la plataforma para organizaciones sin dominio propio, sitemap y robots), `SUPABASE_INVITE_REDIRECT_URL` (redirección de invitaciones) y `SUPABASE_SERVICE_ROLE_KEY` (sólo para `pnpm client:onboard`, nunca para el navegador).
 
 ## Storage
 
@@ -25,7 +25,7 @@ Opcionales: `NEXT_PUBLIC_SITE_URL` (URLs absolutas, sitemap y robots), `SUPABASE
 
 ## Nuevo cliente y backup
 
-Seguir [client-onboarding.md](client-onboarding.md) y [backup-and-recovery.md](backup-and-recovery.md).
+Seguir [client-onboarding.md](client-onboarding.md), [custom-domains.md](custom-domains.md) cuando corresponda y [backup-and-recovery.md](backup-and-recovery.md).
 
 ## Diagnóstico básico
 
@@ -34,6 +34,7 @@ Seguir [client-onboarding.md](client-onboarding.md) y [backup-and-recovery.md](b
 - Imágenes no cargan: comprobar buckets, políticas Storage, rutas y `NEXT_PUBLIC_SUPABASE_URL`.
 - Login falla: comprobar Supabase Auth, cookies, URL de redirección y publishable key.
 - Migración falla: detener deploy, revisar SQL y `_journal.json`; no marcar ni editar migraciones aplicadas manualmente.
+- Dominio propio falla: revisar el estado DNS/SSL en Vercel y la coincidencia exacta con `organizations.custom_domain`.
 
 ## Límites comerciales iniciales
 

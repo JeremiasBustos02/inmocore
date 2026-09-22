@@ -5,11 +5,11 @@ import type { PublicProperty } from "./public-data";
 import { formatPublicPrice, publicOperationLabels } from "./public-property-options";
 
 type PropertyCardProps = {
-  organizationSlug: string;
+  publicBasePath: string;
   property: PublicProperty;
 };
 
-export function PropertyCard({ organizationSlug, property }: PropertyCardProps) {
+export function PropertyCard({ publicBasePath, property }: PropertyCardProps) {
   const details = [
     property.bedrooms !== null
       ? `${property.bedrooms} dorm.`
@@ -25,7 +25,7 @@ export function PropertyCard({ organizationSlug, property }: PropertyCardProps) 
       <Link
         aria-label={`Ver ${property.title} en ${property.city}`}
         className="block focus-visible:rounded-lg focus-visible:outline-2 focus-visible:outline-offset-4"
-        href={`/${encodeURIComponent(organizationSlug)}/properties/${property.id}`}
+        href={`${publicBasePath}/properties/${property.id}`}
       >
         <div className="relative aspect-[4/3] overflow-hidden rounded-lg bg-muted">
           {property.coverUrl ? (

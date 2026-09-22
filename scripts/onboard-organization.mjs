@@ -27,6 +27,8 @@ if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(slug) || slug.length > 80) {
 if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(args["owner-email"])) {
   fail("El email del owner no es válido.");
 }
+const customDomain = normalizeCustomDomain(args["custom-domain"]);
+const siteVariant = normalizeSiteVariant(args["site-variant"]);
 
 const supabase = createClient(supabaseUrl, serviceRoleKey, {
   auth: { autoRefreshToken: false, persistSession: false },
@@ -74,14 +76,17 @@ try {
 
   await sql.begin(async (transaction) => {
     await transaction.unsafe(
-      `insert into organizations
-        (id, name, slug, whatsapp_phone, contact_address, contact_email, contact_phone,
-         logo_path, primary_color, hero_image_path, hero_title, hero_subtitle)
-       values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)`,
+       `insert into organizations
+        (id, name, slug, custom_domain, site_variant, whatsapp_phone, contact_address,
+         contact_email, contact_phone, logo_path, primary_color, hero_image_path,
+         hero_title, hero_subtitle)
+       values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)`,
       [
         organizationId,
         args.name.trim(),
         slug,
+        customDomain,
+        siteVariant,
         normalizePhone(args.whatsapp),
         nullable(args.address),
         nullable(args["public-email"]),
@@ -142,6 +147,55 @@ function normalizeColor(value) {
   const normalized = nullable(value)?.toLowerCase() ?? null;
   if (normalized && !/^#[0-9a-f]{6}$/.test(normalized)) fail("--primary-color debe tener formato #RRGGBB.");
   return normalized;
+}
+
+function normalizeCustomDomain(value) {
+  const domain = nullable(value)?.toLowerCase().replace(/\.$/, "") ?? null;
+  if (!domain) return null;
+  if (
+    domain.length > 253 ||
+    domain.includes(":") ||
+    domain.includes("/") ||
+    domain.includes("@") ||
+    domain.includes("?") ||
+    domain.includes("#")
+  ) {
+    fail("--custom-domain debe ser un hostname sin protocolo, puerto ni path.");
+  }
+  const labels = domain.split(".");
+  if (
+    labels.length < 2 ||
+    labels.some((label) =>
+      label.length === 0 ||
+      label.length > 63 ||
+      !/^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?$/.test(label)
+    )
+  ) {
+    fail("--custom-domain no es un hostname válido.");
+  }
+  const platformHostname = getPlatformHostname();
+  if (domain === platformHostname || domain.endsWith(".vercel.app")) {
+    fail("--custom-domain no puede ser el hostname de la plataforma o de Vercel.");
+  }
+  return domain;
+}
+
+function getPlatformHostname() {
+  const siteUrl = nullable(process.env.NEXT_PUBLIC_SITE_URL);
+  if (!siteUrl) return null;
+  try {
+    return new URL(siteUrl).hostname.toLowerCase();
+  } catch {
+    return null;
+  }
+}
+
+function normalizeSiteVariant(value) {
+  const siteVariant = nullable(value)?.toLowerCase() ?? "default";
+  if (!["default", "editorial"].includes(siteVariant)) {
+    fail("--site-variant debe ser default o editorial.");
+  }
+  return siteVariant;
 }
 
 function imageExtension(filePath) {

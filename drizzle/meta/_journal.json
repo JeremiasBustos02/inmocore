@@ -57,6 +57,13 @@
       "when": 1790026150465,
       "tag": "0007_add_contact_address",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1790035500547,
+      "tag": "0008_outstanding_hardball",
+      "breakpoints": true
     }
   ]
 }
