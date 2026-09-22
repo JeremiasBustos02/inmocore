@@ -42,7 +42,7 @@ export async function generateMetadata({
   const description = `Propiedades en venta y alquiler publicadas por ${organization.name}.`;
 
   return {
-    title,
+    title: { absolute: title },
     description,
     openGraph: { title, description, type: "website", ...(canonical ? { url: canonical } : {}) },
     ...(canonical ? { alternates: { canonical } } : {}),
@@ -106,7 +106,9 @@ export default async function PublicPropertiesPage({
               <h2 className="text-2xl font-semibold tracking-[-0.025em]">Resultados</h2>
               <p className="mt-1.5 text-sm text-muted-foreground">{resultLabel}</p>
             </div>
-            <CatalogSort filters={filters} />
+            <div className="hidden lg:block">
+              <CatalogSort filters={filters} publicBasePath={publicBasePath} />
+            </div>
           </div>
 
           {result.properties.length > 0 ? (

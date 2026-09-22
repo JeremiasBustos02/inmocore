@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { ArrowLeft, MessageCircle } from "lucide-react";
+import { ArrowLeft, MapPin, MessageCircle } from "lucide-react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getOrganizationPublicUrl, getPublicBasePath, getPublicPath } from "@/lib/public-site";
@@ -44,7 +44,7 @@ export async function generateMetadata({
   );
 
   return {
-    title,
+    title: { absolute: title },
     description: propertyDescription,
     ...(canonical ? { alternates: { canonical } } : {}),
     openGraph: {
@@ -107,6 +107,13 @@ export default async function PublicPropertyPage({ params }: PublicPropertyPageP
     property.province,
     property.country !== "Argentina" ? property.country : null,
   ].filter((value): value is string => Boolean(value));
+  const mapsLocation = [
+    property.address,
+    property.city,
+    property.province,
+    property.country,
+  ].filter((value): value is string => Boolean(value)).join(", ");
+  const mapsHref = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(mapsLocation)}`;
   const whatsappMessage = `Hola, quisiera consultar por la propiedad "${property.title}"${property.city ? ` en ${property.city}` : ""} (Ref. ${property.reference}).`;
   const whatsappHref = organization.whatsappPhone
     ? `https://wa.me/${organization.whatsappPhone}?text=${encodeURIComponent(whatsappMessage)}`
@@ -190,9 +197,16 @@ export default async function PublicPropertyPage({ params }: PublicPropertyPageP
 
             <aside className={`${property.description ? "" : "lg:col-start-2"} min-w-0 lg:border-l lg:border-border lg:pl-8`}>
               <h2 className="text-2xl font-semibold tracking-[-0.025em]">Ubicación</h2>
-              <p className="mt-5 break-words text-base leading-7 text-foreground/80">
-                {location.join(", ")}
-              </p>
+              <a
+                aria-label="Ver ubicación en Google Maps"
+                className="public-link mt-5 inline-flex max-w-full items-start gap-2 break-words text-base leading-7 text-foreground/80 hover:text-primary focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-ring"
+                href={mapsHref}
+                rel="noopener noreferrer"
+                target="_blank"
+              >
+                <MapPin aria-hidden="true" className="mt-1 size-4 shrink-0" strokeWidth={1.7} />
+                <span>{location.join(", ")}</span>
+              </a>
               <p className="mt-7 text-sm text-muted-foreground">Ref. {property.reference}</p>
             </aside>
           </div>

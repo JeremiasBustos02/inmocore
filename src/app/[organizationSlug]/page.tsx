@@ -38,7 +38,7 @@ export async function generateMetadata({
   const canonical = getOrganizationPublicUrl(organization);
 
   return {
-    title,
+    title: { absolute: title },
     description,
     openGraph: {
       title,
@@ -197,19 +197,16 @@ export default async function PublicHomePage({ params }: PublicHomePageProps) {
                 La selección se actualizará cuando haya nuevas opciones disponibles.
               </p>
             </div>
-          )}
-        </section>
-
-        <section className="border-t border-border bg-muted">
-          <div className="mx-auto w-full max-w-[1320px] px-5 py-14 sm:px-8 sm:py-16 lg:px-10 lg:py-20">
-            <h2 className="text-balance text-3xl font-semibold tracking-[-0.03em] sm:text-4xl">
+           )}
+          <div className="mt-12 sm:mt-14 lg:mt-16">
+            <h2 className="text-balance text-2xl font-semibold tracking-[-0.03em] sm:text-3xl">
               Explorar por tipo
             </h2>
-            <div className="mt-8 grid border-t border-l border-border sm:grid-cols-2">
+            <div className="mt-6 grid border-l border-t border-border sm:grid-cols-2">
               {propertyTypes.map((type) => (
                 <Link
-                  className="group flex min-h-20 items-center justify-between border-r border-b border-border bg-background px-5 text-base font-semibold hover:bg-background focus-visible:outline-2 focus-visible:outline-offset-[-2px] sm:px-6"
-                    href={`${getPublicPath(publicBasePath, "/properties")}?type=${type.value}`}
+                  className="group flex min-h-20 items-center justify-between border-b border-r border-border bg-background px-5 text-base font-semibold hover:bg-background focus-visible:outline-2 focus-visible:outline-offset-[-2px] sm:px-6"
+                  href={`${getPublicPath(publicBasePath, "/properties")}?type=${type.value}`}
                   key={type.value}
                 >
                   {type.label}
@@ -251,10 +248,15 @@ export default async function PublicHomePage({ params }: PublicHomePageProps) {
                <h2 className="mt-5 text-balance text-[clamp(2.25rem,4.5vw,4.25rem)] font-semibold leading-[1.04] tracking-[-0.045em]" id="contact-title">
                  ¿Buscás una propiedad?
                </h2>
-               <p className="mt-5 text-lg leading-8 text-foreground/70 sm:text-xl">Estamos para ayudarte a encontrarla.</p>
+                <p className="mt-5 text-lg leading-8 text-foreground/70 sm:text-xl">
+                  {organization.isDemo
+                    ? "Los datos de contacto se incorporan con información confirmada."
+                    : "Estamos para ayudarte a encontrarla."}
+                </p>
              </div>
 
-             <div className="mt-14 grid border-y border-border md:grid-cols-3">
+              {organization.contactAddress || organization.contactPhone || organization.contactEmail ? (
+              <div className="mt-14 grid border-y border-border md:grid-cols-3">
                {organization.contactAddress ? (
                  <a
                    className="group flex min-h-28 items-center gap-4 border-b border-border py-7 transition-colors duration-200 hover:text-primary focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-primary md:border-b-0 md:pr-8"
@@ -293,7 +295,8 @@ export default async function PublicHomePage({ params }: PublicHomePageProps) {
                    </span>
                  </a>
                ) : null}
-             </div>
+              </div>
+              ) : null}
 
              {organization.whatsappPhone ? (
                <a

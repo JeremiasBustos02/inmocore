@@ -60,7 +60,7 @@ export type PublicPropertyFilters = {
   priceMax?: number;
   bedrooms?: number;
   bathrooms?: number;
-  sort: "newest" | "price_asc" | "price_desc";
+  sort: "newest" | "oldest" | "price_asc" | "price_desc";
   page: number;
 };
 
@@ -125,7 +125,7 @@ export function parsePublicPropertyFilters(
     bedrooms: parsePositiveInteger(firstValue(searchParams.bedrooms), 20),
     bathrooms: parsePositiveInteger(firstValue(searchParams.bathrooms), 20),
     sort:
-      sort === "price_asc" || sort === "price_desc" || sort === "newest"
+      sort === "oldest" || sort === "price_asc" || sort === "price_desc" || sort === "newest"
         ? sort
         : "newest",
     page: parsePositiveInteger(firstValue(searchParams.page), 100_000) ?? 1,
@@ -336,7 +336,9 @@ export async function getPublicProperties(
   const totalPages = Math.max(1, Math.ceil(total / PUBLIC_PROPERTIES_PAGE_SIZE));
   const page = Math.min(filters.page, totalPages);
   const orderBy =
-    filters.sort === "price_asc"
+    filters.sort === "oldest"
+      ? [asc(properties.createdAt), asc(properties.id)]
+      : filters.sort === "price_asc"
       ? [sql`${properties.priceAmount} asc nulls last`, desc(properties.createdAt), asc(properties.id)]
       : filters.sort === "price_desc"
         ? [sql`${properties.priceAmount} desc nulls last`, desc(properties.createdAt), asc(properties.id)]
