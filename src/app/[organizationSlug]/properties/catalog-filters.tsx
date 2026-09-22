@@ -3,7 +3,7 @@
 import { SlidersHorizontal } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useRef, useState } from "react";
+import { startTransition, useEffect, useRef, useState } from "react";
 import { cn } from "cn";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Field, FieldGroup, FieldLabel } from "@/components/ui/field";
@@ -327,7 +327,15 @@ export function CatalogFilters({
   ].filter((value) => value !== undefined).length;
 
   useEffect(() => {
-    setMobileSelectValues(urlSelectValues);
+    startTransition(() => {
+      setMobileSelectValues({
+        operation: filters.operation,
+        type: filters.type,
+        city: filters.city,
+        bedrooms: filters.bedrooms,
+        bathrooms: filters.bathrooms,
+      });
+    });
   }, [filters.operation, filters.type, filters.city, filters.bedrooms, filters.bathrooms]);
 
   return (

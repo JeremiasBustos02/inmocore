@@ -181,7 +181,7 @@ export async function createProperty(
 
   revalidatePath(propertiesPath(organizationSlug));
   redirect(
-    `${propertiesPath(organizationSlug)}/${encodeURIComponent(createdProperty.id)}/edit`,
+    `${propertiesPath(organizationSlug)}/${encodeURIComponent(createdProperty.id)}/edit?created=1`,
   );
 }
 

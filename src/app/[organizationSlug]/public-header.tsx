@@ -34,7 +34,7 @@ export function PublicHeader({
       </a>
       <div className="mx-auto flex h-[72px] w-full max-w-[1440px] items-center justify-between px-5 sm:h-20 sm:px-8 lg:px-8">
         <Link
-          className="min-w-0 max-w-[14rem] flex-1 truncate text-[15px] font-semibold leading-tight tracking-[-0.01em] focus-visible:rounded-sm focus-visible:outline-2 focus-visible:outline-offset-4 sm:max-w-xs sm:text-base"
+           className="min-w-0 max-w-[14rem] flex-1 cursor-pointer truncate text-[15px] font-semibold leading-tight tracking-[-0.01em] transition-opacity duration-200 hover:opacity-75 focus-visible:rounded-sm focus-visible:outline-2 focus-visible:outline-offset-4 sm:max-w-xs sm:text-base"
           href={homeHref}
         >
            {logoUrl ? <Image alt={organizationName} className="h-12 w-auto max-w-[13rem] object-contain object-left sm:h-14 sm:max-w-[15rem]" height={56} sizes="240px" src={logoUrl} width={240} /> : organizationName}
@@ -44,7 +44,7 @@ export function PublicHeader({
           <nav aria-label="Navegación principal" className="flex items-center gap-7">
             {links.map((link) => (
               <Link
-                className="public-link py-1 text-[14px] font-medium text-foreground/80 hover:text-foreground"
+                 className="public-link cursor-pointer rounded-sm py-1 text-[14px] font-medium text-foreground/80 hover:bg-muted/70 hover:text-foreground"
                 href={link.href}
                 key={link.label}
               >
@@ -52,7 +52,7 @@ export function PublicHeader({
               </Link>
             ))}
           </nav>
-          <Link className="rounded-lg border border-border px-3.5 py-2 text-sm font-medium text-foreground/75 transition-colors hover:border-foreground/30 hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-2" href="/login">
+          <Link className="cursor-pointer rounded-lg border border-border px-3.5 py-2 text-sm font-medium text-foreground/75 transition-[background-color,border-color,color] duration-200 hover:border-foreground/30 hover:bg-muted/60 hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-2" href="/login">
             Acceso
           </Link>
         </div>
@@ -68,14 +68,14 @@ export function PublicHeader({
           >
              {links.map((link) => (
               <Link
-                className="rounded-md px-4 py-3 text-sm font-medium hover:bg-muted focus-visible:outline-2 focus-visible:outline-offset-[-2px]"
+                 className="cursor-pointer rounded-md px-4 py-3 text-sm font-medium transition-colors duration-150 hover:bg-muted focus-visible:outline-2 focus-visible:outline-offset-[-2px]"
                 href={link.href}
                 key={link.label}
               >
                 {link.label}
                </Link>
              ))}
-             <Link className="mt-1 border-t border-border px-4 py-3 text-sm font-medium text-foreground/75 hover:bg-muted focus-visible:outline-2 focus-visible:outline-offset-[-2px]" href="/login">
+              <Link className="mt-1 cursor-pointer border-t border-border px-4 py-3 text-sm font-medium text-foreground/75 transition-colors duration-150 hover:bg-muted focus-visible:outline-2 focus-visible:outline-offset-[-2px]" href="/login">
                Acceso
              </Link>
           </nav>

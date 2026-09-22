@@ -29,7 +29,7 @@ export function PublicFooter({
     <footer className="border-t border-border bg-muted/40">
       <div className={`mx-auto grid w-full max-w-[1440px] gap-10 px-5 py-14 sm:px-8 lg:px-8 lg:py-16 ${hasContact ? "md:grid-cols-[1.4fr_.8fr_1fr]" : "md:grid-cols-[1.4fr_.8fr]"}`}>
         <div>
-          <Link className="inline-flex max-w-[15rem] items-center focus-visible:rounded-sm focus-visible:outline-2 focus-visible:outline-offset-4" href={homeHref}>
+          <Link className="inline-flex max-w-[15rem] cursor-pointer items-center transition-opacity duration-200 hover:opacity-75 focus-visible:rounded-sm focus-visible:outline-2 focus-visible:outline-offset-4" href={homeHref}>
             {logoUrl ? <Image alt={organizationName} className="h-12 w-auto max-w-[13rem] object-contain object-left" height={48} sizes="208px" src={logoUrl} width={208} /> : <span className="text-lg font-semibold tracking-[-0.02em]">{organizationName}</span>}
           </Link>
           <p className="mt-5 max-w-xs text-sm leading-6 text-muted-foreground">Una gestión cercana, clara y profesional para encontrar tu próximo lugar.</p>

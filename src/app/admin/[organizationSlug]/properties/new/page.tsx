@@ -29,7 +29,13 @@ export default async function NewPropertyPage({ params, searchParams }: NewPrope
           <h1 className="text-3xl font-semibold tracking-tight">Nueva propiedad</h1>
           <p className="text-sm text-muted-foreground">Cargá una propiedad al inventario.</p>
       </header>
-      <PropertyForm action={action} cancelHref={propertiesHref} error={error} submitLabel="Crear propiedad" />
+      <PropertyForm
+        action={action}
+        cancelHref={propertiesHref}
+        error={error}
+        pendingLabel="Creando…"
+        submitLabel="Crear propiedad y continuar"
+      />
     </main>
   );
 }

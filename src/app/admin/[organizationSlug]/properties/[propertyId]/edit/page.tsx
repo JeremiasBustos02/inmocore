@@ -13,7 +13,7 @@ import { PropertyImages } from "./property-images";
 
 type EditPropertyPageProps = {
   params: Promise<{ organizationSlug: string; propertyId: string }>;
-  searchParams: Promise<{ error?: string }>;
+  searchParams: Promise<{ created?: string; error?: string }>;
 };
 
 export default async function EditPropertyPage({ params, searchParams }: EditPropertyPageProps) {
@@ -51,7 +51,7 @@ export default async function EditPropertyPage({ params, searchParams }: EditPro
       .getPublicUrl(image.storagePath).data.publicUrl,
   }));
 
-  const { error } = await searchParams;
+  const { created, error } = await searchParams;
   const propertiesHref = `/admin/${encodeURIComponent(organizationSlug)}/properties`;
   const updateAction = updateProperty.bind(null, organizationSlug, propertyId);
   const archiveAction = archiveProperty.bind(null, organizationSlug, propertyId);
@@ -63,6 +63,11 @@ export default async function EditPropertyPage({ params, searchParams }: EditPro
           <h1 className="text-3xl font-semibold tracking-tight">Editar propiedad</h1>
           <p className="text-sm text-muted-foreground">Actualizá los datos y las imágenes de la propiedad.</p>
       </header>
+      {created === "1" ? (
+        <div className="rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-800 dark:text-emerald-300" role="status">
+          Propiedad creada. Ahora podés agregar imágenes y completar los detalles.
+        </div>
+      ) : null}
       <PropertyForm action={updateAction} cancelHref={propertiesHref} error={error} initialValues={property} submitLabel="Guardar cambios" />
       <PropertyImages
         images={imagesWithUrls}

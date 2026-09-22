@@ -59,6 +59,7 @@ type PropertyFormProps = {
   error?: string;
   initialValues?: PropertyFormValues;
   submitLabel: string;
+  pendingLabel?: string;
 };
 
 export function PropertyForm({
@@ -67,6 +68,7 @@ export function PropertyForm({
   error,
   initialValues,
   submitLabel,
+  pendingLabel = "Guardando…",
 }: PropertyFormProps) {
   return (
     <form action={action} className="flex flex-col gap-8">
@@ -199,7 +201,7 @@ export function PropertyForm({
 
       <div className="flex flex-wrap justify-end gap-3">
         <Link className={buttonVariants({ variant: "outline" })} href={cancelHref}>Cancelar</Link>
-        <AdminSubmitButton pendingLabel="Guardando…">{submitLabel}</AdminSubmitButton>
+        <AdminSubmitButton pendingLabel={pendingLabel}>{submitLabel}</AdminSubmitButton>
       </div>
     </form>
   );

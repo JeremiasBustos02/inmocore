@@ -48,6 +48,7 @@ export type PublicProperty = {
   bedrooms: number | null;
   bathrooms: number | null;
   totalAreaM2: number | null;
+  isFeatured: boolean;
   coverUrl: string | null;
 };
 
@@ -250,6 +251,7 @@ export async function getPublicHomeData(organizationId: string) {
       bedrooms: properties.bedrooms,
       bathrooms: properties.bathrooms,
       totalAreaM2: properties.totalAreaM2,
+      isFeatured: properties.isFeatured,
     })
     .from(properties)
     .where(
@@ -310,6 +312,26 @@ export async function getPublicCities(organizationId: string) {
   return cityList.map(({ city }) => city).filter((city) => city.trim().length > 0);
 }
 
+export async function getPublicHeroSuggestions(organizationId: string) {
+  const [propertyTypeList, operationList] = await Promise.all([
+    db
+      .selectDistinct({ propertyType: properties.propertyType })
+      .from(properties)
+      .where(and(...publicPropertyConditions(organizationId)))
+      .orderBy(asc(properties.propertyType)),
+    db
+      .selectDistinct({ operationType: properties.operationType })
+      .from(properties)
+      .where(and(...publicPropertyConditions(organizationId)))
+      .orderBy(asc(properties.operationType)),
+  ]);
+
+  return {
+    propertyTypes: propertyTypeList.map(({ propertyType }) => propertyType),
+    operations: operationList.map(({ operationType }) => operationType),
+  };
+}
+
 export async function getPublicProperties(
   organizationId: string,
   filters: PublicPropertyFilters,
@@ -356,6 +378,7 @@ export async function getPublicProperties(
       bedrooms: properties.bedrooms,
       bathrooms: properties.bathrooms,
       totalAreaM2: properties.totalAreaM2,
+      isFeatured: properties.isFeatured,
     })
     .from(properties)
     .where(and(...conditions))
@@ -457,6 +480,7 @@ export const getPublicPropertyDetail = cache(async (
         garageSpaces: properties.garageSpaces,
         coveredAreaM2: properties.coveredAreaM2,
         totalAreaM2: properties.totalAreaM2,
+        isFeatured: properties.isFeatured,
       })
       .from(properties)
       .where(and(eq(properties.id, propertyId), ...publicPropertyConditions(organizationId)))
@@ -525,6 +549,7 @@ export const getPublicSimilarProperties = cache(async (
       bedrooms: properties.bedrooms,
       bathrooms: properties.bathrooms,
       totalAreaM2: properties.totalAreaM2,
+      isFeatured: properties.isFeatured,
     })
     .from(properties)
     .where(and(...conditions))

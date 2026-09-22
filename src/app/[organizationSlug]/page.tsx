@@ -9,16 +9,22 @@ import {
   getPublicPath,
 } from "@/lib/public-site";
 import { PropertyCard } from "./property-card";
+import { PublicReveal } from "./public-reveal";
 import { PropertySearch } from "./property-search";
 import { PublicFooter } from "./public-footer";
 import { PublicHeader } from "./public-header";
 import {
   getPublicCities,
+  getPublicHeroSuggestions,
   getPublicHomeData,
   getPublicOrganization,
   getPublicOrganizationAssetUrl,
 } from "./public-data";
 import { PublicSiteVariant } from "./site-variants";
+import {
+  publicOperationLabels,
+  publicPropertyTypeLabels,
+} from "./public-property-options";
 
 type PublicHomePageProps = {
   params: Promise<{ organizationSlug: string }>;
@@ -97,14 +103,34 @@ export default async function PublicHomePage({ params }: PublicHomePageProps) {
 
   if (!organization) notFound();
 
-  const [propertyList, cities] = await Promise.all([
+  const [propertyList, cities, heroSuggestionData] = await Promise.all([
     getPublicHomeData(organization.id),
     getPublicCities(organization.id),
+    getPublicHeroSuggestions(organization.id),
   ]);
   const heroProperty = propertyList.find((property) => property.coverUrl);
   const heroImageUrl = getPublicOrganizationAssetUrl(organization.heroImagePath) ?? heroProperty?.coverUrl;
   const publicBasePath = getPublicBasePath(organizationSlug, organization.slug);
   const benefits = organization.isDemo ? demoBenefits : verifiedBenefits;
+  const suggestedOperation = heroSuggestionData.operations.includes("rent")
+    ? "rent"
+    : heroSuggestionData.operations[0];
+  const heroSuggestions = [
+    ...heroSuggestionData.propertyTypes.slice(0, 3).map((propertyType) => ({
+      label: publicPropertyTypeLabels[propertyType],
+      params: { type: propertyType },
+    })),
+    ...(suggestedOperation
+      ? [{
+          label: publicOperationLabels[suggestedOperation],
+          params: { operation: suggestedOperation },
+        }]
+      : []),
+    ...cities.slice(0, 3).map((city) => ({
+      label: `Propiedades en ${city}`,
+      params: { city },
+    })),
+  ].slice(0, 6);
 
   return (
     <PublicSiteVariant siteVariant={organization.siteVariant}>
@@ -118,13 +144,13 @@ export default async function PublicHomePage({ params }: PublicHomePageProps) {
       <main id="contenido-principal">
         <section
           aria-labelledby="hero-title"
-          className="relative min-h-[480px] overflow-visible bg-muted pb-6 sm:min-h-[520px] sm:pb-8 lg:min-h-[500px]"
+          className="relative flex min-h-[560px] overflow-hidden bg-muted sm:min-h-[580px] lg:min-h-[600px]"
         >
           <div className="absolute inset-0 overflow-hidden">
             {heroImageUrl ? (
               <Image
                 alt={organization.heroTitle ?? `${organization.name} portada`}
-                className="object-cover"
+                 className="object-cover object-center"
                 fill
                 preload
                 sizes="100vw"
@@ -134,31 +160,37 @@ export default async function PublicHomePage({ params }: PublicHomePageProps) {
           </div>
           <div
             aria-hidden="true"
-            className={`absolute inset-0 ${heroImageUrl ? "bg-black/45" : "bg-black/5"}`}
+             className={`absolute inset-0 ${heroImageUrl ? "bg-black/40" : "bg-black/5"}`}
           />
           <div
-             className={`public-hero-content relative mx-auto flex w-full max-w-[1440px] flex-col items-center px-5 pt-16 text-center sm:px-8 sm:pt-20 lg:px-8 lg:pt-24 ${heroProperty ? "text-white" : "text-foreground"}`}
+             className={`public-hero-content relative mx-auto flex w-full max-w-[1440px] flex-1 flex-col items-center justify-center px-5 py-14 text-center sm:px-8 sm:py-16 lg:px-8 lg:py-20 ${heroProperty ? "text-white" : "text-foreground"}`}
           >
-            <h1
-              className="w-full max-w-4xl text-balance text-[clamp(2.45rem,5vw,4.5rem)] font-semibold leading-[1.04] tracking-[-0.04em]"
+             <h1
+                className="public-hero-enter public-hero-enter-1 w-full max-w-4xl text-balance text-[clamp(2.35rem,4.2vw,3.75rem)] font-semibold leading-[1.05] tracking-[-0.04em]"
               id="hero-title"
             >
                {organization.heroTitle ?? "Encontrá tu próximo lugar"}
             </h1>
-             <p className={`mt-4 w-full max-w-xl text-base leading-7 sm:text-lg ${heroImageUrl ? "text-white/85" : "text-muted-foreground"}`}>
+              <p className={`public-hero-enter public-hero-enter-2 mt-3 w-full max-w-xl text-base leading-7 sm:mt-4 sm:text-[19px] ${heroImageUrl ? "text-white/85" : "text-muted-foreground"}`}>
                {organization.heroSubtitle ?? "Propiedades para vivir, invertir y proyectar con confianza."}
             </p>
-            <div className="relative z-10 mt-7 w-full sm:mt-8">
-              <PropertySearch cities={cities} publicBasePath={publicBasePath} />
+             <div className="relative z-10 mt-7 w-full sm:mt-8">
+               <PropertySearch
+                 cities={cities}
+                 hasHeroImage={Boolean(heroImageUrl)}
+                 publicBasePath={publicBasePath}
+                 suggestions={heroSuggestions}
+               />
             </div>
           </div>
         </section>
 
-        <section
-          aria-labelledby="featured-title"
+         <PublicReveal
+           as="section"
+           aria-labelledby="featured-title"
            className="mx-auto w-full max-w-[1440px] scroll-mt-6 px-5 pb-16 pt-14 sm:px-8 sm:pb-20 sm:pt-16 lg:px-8 lg:pb-20 lg:pt-20"
           id="propiedades"
-        >
+         >
           <div className="mb-9 flex flex-col gap-5 border-b border-border pb-7 sm:flex-row sm:items-end sm:justify-between">
             <div>
               <h2
@@ -172,7 +204,7 @@ export default async function PublicHomePage({ params }: PublicHomePageProps) {
               </p>
             </div>
             <Link
-              className="public-link flex w-fit items-center gap-2 text-sm font-semibold"
+               className="public-link flex w-fit cursor-pointer items-center gap-2 text-sm font-semibold"
               href={getPublicPath(publicBasePath, "/properties")}
             >
               Ver todas
@@ -181,7 +213,7 @@ export default async function PublicHomePage({ params }: PublicHomePageProps) {
           </div>
 
           {propertyList.length > 0 ? (
-            <div className="grid gap-x-6 gap-y-12 md:grid-cols-2 xl:grid-cols-3">
+             <div className="public-featured-grid grid gap-x-6 gap-y-12 md:grid-cols-2 xl:grid-cols-3">
               {propertyList.map((property) => (
                 <PropertyCard
                   key={property.id}
@@ -205,7 +237,7 @@ export default async function PublicHomePage({ params }: PublicHomePageProps) {
             <div className="mt-6 grid border-l border-t border-border sm:grid-cols-2">
               {propertyTypes.map((type) => (
                 <Link
-                  className="group flex min-h-20 items-center justify-between border-b border-r border-border bg-background px-5 text-base font-semibold hover:bg-background focus-visible:outline-2 focus-visible:outline-offset-[-2px] sm:px-6"
+                   className="group flex min-h-20 cursor-pointer items-center justify-between border-b border-r border-border bg-background px-5 text-base font-semibold hover:bg-muted/40 focus-visible:outline-2 focus-visible:outline-offset-[-2px] sm:px-6"
                   href={`${getPublicPath(publicBasePath, "/properties")}?type=${type.value}`}
                   key={type.value}
                 >
@@ -217,10 +249,10 @@ export default async function PublicHomePage({ params }: PublicHomePageProps) {
               ))}
             </div>
           </div>
-        </section>
+         </PublicReveal>
 
          <div className="border-t border-border bg-muted">
-           <section aria-labelledby="estudio-title" className="scroll-mt-6" id="estudio">
+            <PublicReveal as="section" aria-labelledby="estudio-title" className="scroll-mt-6" id="estudio">
               <div className="mx-auto grid w-full max-w-[1440px] gap-16 px-5 pb-10 pt-16 sm:px-8 sm:pb-14 sm:pt-20 md:grid-cols-[1.15fr_.85fr] md:gap-20 lg:gap-32 lg:px-8 lg:pb-16 lg:pt-24">
                <div className="max-w-2xl">
                  <p className="text-xs font-semibold tracking-[0.22em] text-primary/70">¿POR QUÉ ELEGIRNOS?</p>
@@ -240,13 +272,13 @@ export default async function PublicHomePage({ params }: PublicHomePageProps) {
                  ))}
                </div>
              </div>
-           </section>
+            </PublicReveal>
 
            <div className="mx-auto w-full max-w-[1440px] px-5 sm:px-8 lg:px-8" aria-hidden="true">
              <div className="border-t border-border/70" />
            </div>
 
-           <section aria-labelledby="contact-title" className="scroll-mt-6" id="contacto">
+            <PublicReveal as="section" aria-labelledby="contact-title" className="scroll-mt-6" id="contacto">
               <div className="mx-auto w-full max-w-[1440px] px-5 pb-16 pt-10 sm:px-8 sm:pb-20 sm:pt-14 lg:px-8 lg:pb-24 lg:pt-20">
                <div className="max-w-2xl">
                  <p className="text-xs font-semibold tracking-[0.24em] text-muted-foreground">HABLEMOS</p>
@@ -305,7 +337,7 @@ export default async function PublicHomePage({ params }: PublicHomePageProps) {
 
              {organization.whatsappPhone ? (
                <a
-                 className="group mt-12 inline-flex min-h-14 w-full items-center justify-center gap-3 rounded-lg bg-primary px-6 text-sm font-semibold text-primary-foreground transition-[background-color,transform] duration-200 hover:-translate-y-0.5 hover:bg-primary/90 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-primary sm:w-fit"
+                  className="group mt-12 inline-flex min-h-14 w-full cursor-pointer items-center justify-center gap-3 rounded-lg bg-primary px-6 text-sm font-semibold text-primary-foreground transition-[background-color,transform] duration-200 hover:-translate-y-0.5 hover:bg-primary/90 active:scale-[0.98] focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-primary sm:w-fit"
                  href={`https://wa.me/${organization.whatsappPhone}`}
                  rel="noopener noreferrer"
                  target="_blank"
@@ -316,7 +348,7 @@ export default async function PublicHomePage({ params }: PublicHomePageProps) {
                </a>
              ) : null}
              </div>
-           </section>
+            </PublicReveal>
          </div>
        </main>
 

@@ -116,7 +116,7 @@ function NavigationLinks({
           <Link
             aria-current={active ? "page" : undefined}
             className={cn(
-              "relative flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50",
+               "relative flex cursor-pointer items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50",
               active
                 ? "bg-muted text-foreground before:absolute before:inset-y-2 before:left-0 before:w-0.5 before:rounded-full before:bg-foreground"
                 : "text-muted-foreground hover:bg-muted/60 hover:text-foreground",
@@ -142,7 +142,7 @@ function SecondaryActions({ organizationSlug }: { organizationSlug: string }) {
       <Link
         className={cn(
           buttonVariants({ variant: "ghost" }),
-          "justify-start gap-3 px-3 text-muted-foreground hover:text-foreground",
+           "cursor-pointer justify-start gap-3 px-3 text-muted-foreground hover:text-foreground",
         )}
         href={publicHref}
       >
@@ -170,7 +170,7 @@ export function AdminSidebar(props: AdminNavigationProps) {
   return (
     <aside className="sticky top-0 hidden h-[100dvh] max-h-[100dvh] w-64 shrink-0 border-r bg-card/30 lg:flex lg:flex-col lg:px-4 lg:py-6">
       <div className="flex flex-col gap-1 px-3">
-        <Link className="text-lg font-semibold tracking-tight" href={`/admin/${encodeURIComponent(props.organizationSlug)}`}>
+         <Link className="cursor-pointer text-lg font-semibold tracking-tight transition-opacity hover:opacity-75" href={`/admin/${encodeURIComponent(props.organizationSlug)}`}>
           InmoCore
         </Link>
         <p className="truncate text-sm text-muted-foreground">{props.organizationName}</p>

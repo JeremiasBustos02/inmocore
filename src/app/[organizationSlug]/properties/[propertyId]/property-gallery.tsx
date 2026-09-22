@@ -70,7 +70,7 @@ export function PropertyGallery({ images, propertyTitle, city }: PropertyGallery
       <div className={secondaryImages.length > 0 ? "grid gap-2 lg:h-[520px] lg:grid-cols-[2fr_1fr]" : "relative aspect-[4/3] max-h-[680px] overflow-hidden rounded-lg bg-muted sm:aspect-[16/9]"}>
         <button
           aria-label={`Ampliar imagen 1 de ${images.length}`}
-          className={secondaryImages.length > 0 ? "group relative aspect-[4/3] overflow-hidden rounded-lg bg-muted text-left focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring lg:aspect-auto" : "absolute inset-0 block size-full cursor-zoom-in text-left focus-visible:outline-2 focus-visible:outline-offset-[-3px] focus-visible:outline-ring"}
+           className={secondaryImages.length > 0 ? "group relative aspect-[4/3] cursor-zoom-in overflow-hidden rounded-lg bg-muted text-left focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring lg:aspect-auto" : "absolute inset-0 block size-full cursor-zoom-in text-left focus-visible:outline-2 focus-visible:outline-offset-[-3px] focus-visible:outline-ring"}
           onClick={() => openImage(0)}
           type="button"
         >
@@ -113,7 +113,7 @@ export function PropertyGallery({ images, propertyTitle, city }: PropertyGallery
         >
           <button
             aria-label="Cerrar galería"
-            className="absolute right-4 top-4 z-10 inline-flex size-11 items-center justify-center rounded-full bg-white/10 text-white transition-colors hover:bg-white/20 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
+             className="absolute right-4 top-4 z-10 inline-flex size-11 cursor-pointer items-center justify-center rounded-full bg-white/10 text-white transition-colors hover:bg-white/20 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
             onClick={() => setActiveIndex(null)}
             ref={closeButtonRef}
             type="button"
@@ -127,10 +127,10 @@ export function PropertyGallery({ images, propertyTitle, city }: PropertyGallery
 
           {images.length > 1 ? (
             <>
-              <button aria-label="Imagen anterior" className="absolute left-3 top-1/2 inline-flex size-11 -translate-y-1/2 items-center justify-center rounded-full bg-white/10 text-white transition-colors hover:bg-white/20 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white sm:left-6" onClick={() => moveImage(-1)} type="button">
+               <button aria-label="Imagen anterior" className="absolute left-3 top-1/2 inline-flex size-11 -translate-y-1/2 cursor-pointer items-center justify-center rounded-full bg-white/10 text-white transition-colors hover:bg-white/20 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white sm:left-6" onClick={() => moveImage(-1)} type="button">
                 <ChevronLeft aria-hidden="true" className="size-6" />
               </button>
-              <button aria-label="Imagen siguiente" className="absolute right-3 top-1/2 inline-flex size-11 -translate-y-1/2 items-center justify-center rounded-full bg-white/10 text-white transition-colors hover:bg-white/20 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white sm:right-6" onClick={() => moveImage(1)} type="button">
+               <button aria-label="Imagen siguiente" className="absolute right-3 top-1/2 inline-flex size-11 -translate-y-1/2 cursor-pointer items-center justify-center rounded-full bg-white/10 text-white transition-colors hover:bg-white/20 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white sm:right-6" onClick={() => moveImage(1)} type="button">
                 <ChevronRight aria-hidden="true" className="size-6" />
               </button>
               <p className="absolute bottom-4 left-1/2 -translate-x-1/2 rounded-full bg-white/10 px-3 py-1.5 text-xs font-medium text-white" aria-live="polite">
