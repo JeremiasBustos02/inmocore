@@ -33,6 +33,7 @@ export default async function NewPropertyPage({ params, searchParams }: NewPrope
       <PropertyForm
         action={action}
         cancelHref={propertiesHref}
+        createImageUpload={{ organizationId: membership.id, organizationSlug }}
         error={error}
         geocodeAction={geocodePropertyAddress.bind(null, organizationSlug)}
         markerColor={membership.primaryColor}
@@ -40,7 +41,7 @@ export default async function NewPropertyPage({ params, searchParams }: NewPrope
           ? { latitude: membership.contactLatitude, longitude: membership.contactLongitude }
           : null}
         pendingLabel="Creando…"
-        submitLabel="Crear propiedad y continuar"
+        submitLabel="Crear propiedad"
       />
     </main>
   );

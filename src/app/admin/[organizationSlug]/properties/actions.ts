@@ -163,7 +163,7 @@ export async function createProperty(
   const values = parsePropertyForm(formData);
 
   if (!values) {
-    redirect(`${propertiesPath(organizationSlug)}/new?error=invalid`);
+    return { ok: false as const, error: "invalid" };
   }
 
   let createdProperty: { id: string } | undefined;
@@ -183,7 +183,7 @@ export async function createProperty(
     });
   } catch (error) {
     if (isUniqueViolation(error)) {
-      redirect(`${propertiesPath(organizationSlug)}/new?error=code`);
+      return { ok: false as const, error: "code" };
     }
     throw error;
   }
@@ -193,9 +193,7 @@ export async function createProperty(
   }
 
   revalidatePath(propertiesPath(organizationSlug));
-  redirect(
-    `${propertiesPath(organizationSlug)}/${encodeURIComponent(createdProperty.id)}/edit?created=1`,
-  );
+  return { ok: true as const, propertyId: createdProperty.id };
 }
 
 export async function updateProperty(

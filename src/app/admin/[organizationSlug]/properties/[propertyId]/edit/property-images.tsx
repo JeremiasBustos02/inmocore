@@ -59,16 +59,13 @@ export function PropertyImages({
 }: PropertyImagesProps) {
   const router = useRouter();
   const inputRef = useRef<HTMLInputElement>(null);
+  const previewUrls = useRef(new Set<string>());
   const [selectedImages, setSelectedImages] = useState<SelectedImage[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [isWorking, setIsWorking] = useState(false);
   const [uploadProgress, setUploadProgress] = useState<string | null>(null);
 
-  useEffect(() => {
-    return () => {
-      selectedImages.forEach((image) => URL.revokeObjectURL(image.previewUrl));
-    };
-  }, [selectedImages]);
+  useEffect(() => () => previewUrls.current.forEach((url) => URL.revokeObjectURL(url)), []);
 
   function clearSelection() {
     setSelectedImages([]);
@@ -107,16 +104,17 @@ export function PropertyImages({
       return;
     }
 
-    setSelectedImages(
-      selected.map((file) => ({
+    const nextSelection = selected.map((file) => ({
         file,
         previewUrl: URL.createObjectURL(file),
-      })),
-    );
+      }));
+    nextSelection.forEach(({ previewUrl }) => previewUrls.current.add(previewUrl));
+    setSelectedImages(nextSelection);
+    void uploadImages(nextSelection);
   }
 
-  async function uploadImages() {
-    if (selectedImages.length === 0) return;
+  async function uploadImages(imagesToUpload = selectedImages) {
+    if (imagesToUpload.length === 0) return;
 
     setError(null);
     setIsWorking(true);
@@ -124,7 +122,8 @@ export function PropertyImages({
     try {
       const supabase = createClient();
 
-      for (const [index, selectedImage] of selectedImages.entries()) {
+      const failedImages: SelectedImage[] = [];
+      for (const [index, selectedImage] of imagesToUpload.entries()) {
         const { file } = selectedImage;
 
         if (!isAllowedMimeType(file.type)) {
@@ -132,32 +131,45 @@ export function PropertyImages({
         }
 
         setUploadProgress(
-          `Subiendo imagen ${index + 1} de ${selectedImages.length}…`,
+          `Subiendo imagen ${index + 1} de ${imagesToUpload.length}…`,
         );
         const extension = PROPERTY_IMAGE_EXTENSIONS[file.type];
         const storagePath = `${organizationId}/${propertyId}/${crypto.randomUUID()}.${extension}`;
-        const { error: uploadError } = await supabase.storage
-          .from(PROPERTY_IMAGES_BUCKET)
-          .upload(storagePath, file, {
-            contentType: file.type,
-            upsert: false,
-          });
+        try {
+          const { error: uploadError } = await supabase.storage
+            .from(PROPERTY_IMAGES_BUCKET)
+            .upload(storagePath, file, {
+              contentType: file.type,
+              upsert: false,
+            });
+          if (uploadError) {
+            failedImages.push(selectedImage);
+            continue;
+          }
 
-        if (uploadError) {
-          throw new Error("No se pudo subir una de las imágenes.");
-        }
+          const registration = await registerPropertyImage(
+            organizationSlug,
+            propertyId,
+            storagePath,
+          );
 
-        const registration = await registerPropertyImage(
-          organizationSlug,
-          propertyId,
-          storagePath,
-        );
-
-        if (!registration.ok) {
-          await supabase.storage.from(PROPERTY_IMAGES_BUCKET).remove([storagePath]);
-          throw new Error(registration.error);
+          if (!registration.ok) {
+            await supabase.storage.from(PROPERTY_IMAGES_BUCKET).remove([storagePath]);
+            setError(registration.error);
+            failedImages.push(selectedImage);
+          }
+        } catch {
+          failedImages.push(selectedImage);
         }
       }
+      setSelectedImages(failedImages);
+      for (const image of imagesToUpload) {
+        if (!failedImages.includes(image)) {
+          URL.revokeObjectURL(image.previewUrl);
+          previewUrls.current.delete(image.previewUrl);
+        }
+      }
+      if (failedImages.length) setError(`No se pudieron subir ${failedImages.length} imágenes. Podés seleccionar nuevamente para reintentar.`);
     } catch (uploadError) {
       setError(
         uploadError instanceof Error
@@ -165,7 +177,6 @@ export function PropertyImages({
           : "No se pudieron subir las imágenes.",
       );
     } finally {
-      clearSelection();
       setUploadProgress(null);
       setIsWorking(false);
       router.refresh();
@@ -263,13 +274,7 @@ export function PropertyImages({
         ) : null}
 
         <div className="flex flex-wrap items-center gap-3">
-          <Button
-            type="button"
-            disabled={isWorking || selectedImages.length === 0}
-            onClick={uploadImages}
-          >
-            {isWorking ? "Subiendo…" : "Subir imágenes"}
-          </Button>
+          {selectedImages.length > 0 ? <Button type="button" disabled={isWorking} onClick={() => uploadImages()}>Reintentar imágenes pendientes</Button> : null}
           {uploadProgress ? (
             <p className="text-sm text-muted-foreground" aria-live="polite">
               {uploadProgress}

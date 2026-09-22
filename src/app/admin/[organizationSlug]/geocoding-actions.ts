@@ -7,18 +7,21 @@ import { requireOrganizationMembership } from "@/lib/organizations";
 
 export async function geocodePropertyAddress(
   organizationSlug: string,
-  query: string,
+  query: string | { address?: string; city?: string; province?: string; country?: string },
 ) {
   const userId = await requireAuthenticatedUserId();
   const membership = await requireOrganizationMembership(userId, organizationSlug);
   if (!membership) notFound();
 
-  return geocodeAddress(query);
+  const coordinates = membership.contactLatitude !== null && membership.contactLongitude !== null
+    ? { latitude: membership.contactLatitude, longitude: membership.contactLongitude }
+    : null;
+  return geocodeAddress(query, coordinates);
 }
 
 export async function geocodeOrganizationAddress(
   organizationSlug: string,
-  query: string,
+  query: string | { address?: string; city?: string; province?: string; country?: string },
 ) {
   const userId = await requireAuthenticatedUserId();
   const membership = await requireOrganizationMembership(userId, organizationSlug);
@@ -26,5 +29,8 @@ export async function geocodeOrganizationAddress(
     notFound();
   }
 
-  return geocodeAddress(query);
+  const coordinates = membership.contactLatitude !== null && membership.contactLongitude !== null
+    ? { latitude: membership.contactLatitude, longitude: membership.contactLongitude }
+    : null;
+  return geocodeAddress(query, coordinates);
 }
