@@ -7,11 +7,17 @@ import { Image as ImageIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { AdminFilePicker } from "@/components/admin/admin-file-picker";
 import {
+  MAX_ORGANIZATION_ASSET_INPUT_SIZE,
   MAX_ORGANIZATION_ASSET_SIZE,
   ORGANIZATION_ASSETS_BUCKET,
-  ORGANIZATION_ASSET_EXTENSIONS,
   type OrganizationAssetType,
 } from "@/lib/organization-assets";
+import {
+  HERO_IMAGE_PRESET,
+  IMAGE_CACHE_CONTROL,
+  LOGO_IMAGE_PRESET,
+  optimizeImage,
+} from "@/lib/image-optimization";
 import { createClient } from "@/lib/supabase/client";
 import { updateOrganizationAsset } from "../actions";
 
@@ -43,24 +49,27 @@ export function OrganizationAssetUpload({
 
     setError(null);
     setMessage(null);
-    if (!(file.type in ORGANIZATION_ASSET_EXTENSIONS)) {
+    if (!(file.type === "image/jpeg" || file.type === "image/png" || file.type === "image/webp")) {
       setError("Usá una imagen PNG, JPEG o WebP.");
       return;
     }
-    if (file.size > MAX_ORGANIZATION_ASSET_SIZE) {
+    if (file.size > MAX_ORGANIZATION_ASSET_INPUT_SIZE) {
       setError("La imagen no puede superar los 5 MB.");
       return;
     }
 
-    const extension = ORGANIZATION_ASSET_EXTENSIONS[file.type as keyof typeof ORGANIZATION_ASSET_EXTENSIONS];
-    const storagePath = `${organizationId}/${assetType}/${crypto.randomUUID()}.${extension}`;
     setIsUploading(true);
+    setMessage("Preparando imagen...");
 
     try {
+      const preset = assetType === "hero" ? HERO_IMAGE_PRESET : LOGO_IMAGE_PRESET;
+      const optimized = await optimizeImage(file, preset);
+      setMessage("Subiendo imagen optimizada...");
+      const storagePath = `${organizationId}/${assetType}/${crypto.randomUUID()}.webp`;
       const supabase = createClient();
       const { error: uploadError } = await supabase.storage
         .from(ORGANIZATION_ASSETS_BUCKET)
-        .upload(storagePath, file, { contentType: file.type, upsert: false });
+        .upload(storagePath, optimized.file, { contentType: "image/webp", cacheControl: IMAGE_CACHE_CONTROL, upsert: false });
       if (uploadError) throw new Error("No se pudo subir la imagen.");
 
       const result = await updateOrganizationAsset(organizationSlug, assetType, storagePath);
@@ -99,7 +108,7 @@ export function OrganizationAssetUpload({
         <AdminFilePicker
           accept="image/png,image/jpeg,image/webp"
           files={selectedFile}
-          hint="PNG, JPG o WebP · máximo 5 MB"
+          hint={`PNG, JPG o WebP · original hasta ${MAX_ORGANIZATION_ASSET_INPUT_SIZE / 1024 / 1024} MB · salida WebP hasta ${MAX_ORGANIZATION_ASSET_SIZE / 1024 / 1024} MB`}
           inputRef={inputRef}
           label={currentUrl ? "Seleccionar nueva imagen" : "Seleccionar imagen"}
           onChange={setSelectedFile}
@@ -110,7 +119,7 @@ export function OrganizationAssetUpload({
           {isUploading ? "Subiendo…" : currentUrl ? "Reemplazar" : "Subir imagen"}
         </Button>
       </div>
-      <p className="text-xs text-muted-foreground">PNG, JPEG o WebP. Máximo 5 MB.</p>
+      <p className="text-xs text-muted-foreground">Se convierte a WebP y se optimiza antes de subir. El logo conserva transparencia.</p>
       {message ? <p className="text-sm text-muted-foreground" role="status">{message}</p> : null}
       {error ? <p className="text-sm text-destructive" role="alert">{error}</p> : null}
     </div>

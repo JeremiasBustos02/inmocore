@@ -16,9 +16,16 @@ import {
 import {
   MAX_PROPERTY_IMAGES,
   MAX_PROPERTY_IMAGE_SIZE,
-  PROPERTY_IMAGE_EXTENSIONS,
   PROPERTY_IMAGES_BUCKET,
 } from "@/lib/property-images";
+import {
+  IMAGE_CACHE_CONTROL,
+  MAX_IMAGE_INPUT_SIZE,
+  MAX_IMAGE_PIXELS,
+  PROPERTY_IMAGE_PRESET,
+  optimizeImageBatch,
+  validateImageInput,
+} from "@/lib/image-optimization";
 import { createClient } from "@/lib/supabase/client";
 import {
   deletePropertyImage,
@@ -40,15 +47,13 @@ type PropertyImagesProps = {
 };
 
 type SelectedImage = {
-  file: File;
-  previewUrl: string;
+  id: string;
+  original: File;
+  optimized?: File;
+  previewUrl?: string;
+  error?: string;
+  status: "processing" | "ready" | "error";
 };
-
-function isAllowedMimeType(
-  type: string,
-): type is keyof typeof PROPERTY_IMAGE_EXTENSIONS {
-  return type in PROPERTY_IMAGE_EXTENSIONS;
-}
 
 export function PropertyImages({
   images,
@@ -68,6 +73,11 @@ export function PropertyImages({
   useEffect(() => () => previewUrls.current.forEach((url) => URL.revokeObjectURL(url)), []);
 
   function clearSelection() {
+    selectedImages.forEach(({ previewUrl }) => {
+      if (!previewUrl) return;
+      URL.revokeObjectURL(previewUrl);
+      previewUrls.current.delete(previewUrl);
+    });
     setSelectedImages([]);
     if (inputRef.current) inputRef.current.value = "";
   }
@@ -88,99 +98,113 @@ export function PropertyImages({
       return;
     }
 
-    const invalidType = selected.some((file) => !isAllowedMimeType(file.type));
-    if (invalidType) {
-      setError("Sólo se permiten imágenes JPEG, PNG o WebP.");
-      clearSelection();
-      return;
-    }
-
-    const oversized = selected.some(
-      (file) => file.size > MAX_PROPERTY_IMAGE_SIZE,
-    );
-    if (oversized) {
-      setError("Cada imagen debe pesar 10 MB o menos.");
-      clearSelection();
-      return;
-    }
-
-    const nextSelection = selected.map((file) => ({
-        file,
-        previewUrl: URL.createObjectURL(file),
-      }));
-    nextSelection.forEach(({ previewUrl }) => previewUrls.current.add(previewUrl));
-    setSelectedImages(nextSelection);
-    void uploadImages(nextSelection);
+    const nextSelection = selected.map((original): SelectedImage => {
+      const validationError = validateImageInput(original);
+      return {
+        id: crypto.randomUUID(),
+        original,
+        status: validationError ? "error" : "processing",
+        error: validationError ?? undefined,
+      };
+    });
+    setSelectedImages((current) => [...current, ...nextSelection]);
+    const validSelection = nextSelection.filter(({ status }) => status === "processing");
+    if (validSelection.length) void processAndUpload(validSelection);
   }
 
-  async function uploadImages(imagesToUpload = selectedImages) {
+  async function processAndUpload(imagesToUpload: SelectedImage[]) {
     if (imagesToUpload.length === 0) return;
 
     setError(null);
     setIsWorking(true);
 
     try {
-      const supabase = createClient();
-
-      const failedImages: SelectedImage[] = [];
-      for (const [index, selectedImage] of imagesToUpload.entries()) {
-        const { file } = selectedImage;
-
-        if (!isAllowedMimeType(file.type)) {
-          throw new Error("El tipo de una imagen no es válido.");
+      setUploadProgress("Preparando imágenes...");
+      const processed = await optimizeImageBatch(
+        imagesToUpload.map(({ original }) => original),
+        PROPERTY_IMAGE_PRESET,
+        (completed, total) => setUploadProgress(`Optimizando ${completed} de ${total}...`),
+      );
+      const ready = processed.flatMap((result) => {
+        const item = imagesToUpload[result.index];
+        if (!result.ok) {
+          setSelectedImages((current) => current.map((candidate) => candidate.id === item.id
+            ? { ...candidate, status: "error", error: result.error }
+            : candidate));
+          return [];
         }
+        const previewUrl = URL.createObjectURL(result.result.file);
+        previewUrls.current.add(previewUrl);
+        const updated = { ...item, optimized: result.result.file, previewUrl, status: "ready" as const, error: undefined };
+        setSelectedImages((current) => current.map((candidate) => candidate.id === item.id ? updated : candidate));
+        return [updated];
+      });
 
-        setUploadProgress(
-          `Subiendo imagen ${index + 1} de ${imagesToUpload.length}…`,
-        );
-        const extension = PROPERTY_IMAGE_EXTENSIONS[file.type];
-        const storagePath = `${organizationId}/${propertyId}/${crypto.randomUUID()}.${extension}`;
+      const supabase = createClient();
+      const uploadedIds = new Set<string>();
+      for (const [index, item] of ready.entries()) {
+        const file = item.optimized;
+        if (!file) continue;
+        setUploadProgress(`Subiendo imágenes… ${index + 1} de ${ready.length}`);
+        const storagePath = `${organizationId}/${propertyId}/${crypto.randomUUID()}.webp`;
         try {
           const { error: uploadError } = await supabase.storage
             .from(PROPERTY_IMAGES_BUCKET)
             .upload(storagePath, file, {
-              contentType: file.type,
+              contentType: "image/webp",
+              cacheControl: IMAGE_CACHE_CONTROL,
               upsert: false,
             });
           if (uploadError) {
-            failedImages.push(selectedImage);
+            setSelectedImages((current) => current.map((candidate) => candidate.id === item.id
+              ? { ...candidate, status: "error", error: "No se pudo subir el WebP optimizado. Podés reintentar." }
+              : candidate));
             continue;
           }
 
-          const registration = await registerPropertyImage(
-            organizationSlug,
-            propertyId,
-            storagePath,
-          );
-
+          const registration = await registerPropertyImage(organizationSlug, propertyId, storagePath);
           if (!registration.ok) {
             await supabase.storage.from(PROPERTY_IMAGES_BUCKET).remove([storagePath]);
-            setError(registration.error);
-            failedImages.push(selectedImage);
+            setSelectedImages((current) => current.map((candidate) => candidate.id === item.id
+              ? { ...candidate, status: "error", error: registration.error }
+              : candidate));
+            continue;
           }
+          uploadedIds.add(item.id);
         } catch {
-          failedImages.push(selectedImage);
+          setSelectedImages((current) => current.map((candidate) => candidate.id === item.id
+            ? { ...candidate, status: "error", error: "No se pudo subir la imagen. Podés reintentar." }
+            : candidate));
         }
       }
-      setSelectedImages(failedImages);
-      for (const image of imagesToUpload) {
-        if (!failedImages.includes(image)) {
-          URL.revokeObjectURL(image.previewUrl);
-          previewUrls.current.delete(image.previewUrl);
+
+      setSelectedImages((current) => current.filter((item) => {
+        if (!uploadedIds.has(item.id)) return true;
+        if (item.previewUrl) {
+          URL.revokeObjectURL(item.previewUrl);
+          previewUrls.current.delete(item.previewUrl);
         }
+        return false;
+      }));
+      if (processed.some((result) => !result.ok) || ready.length !== uploadedIds.size) {
+        setError("Algunas imágenes no se pudieron procesar o subir. Podés reintentarlas o eliminarlas.");
       }
-      if (failedImages.length) setError(`No se pudieron subir ${failedImages.length} imágenes. Podés seleccionar nuevamente para reintentar.`);
-    } catch (uploadError) {
-      setError(
-        uploadError instanceof Error
-          ? uploadError.message
-          : "No se pudieron subir las imágenes.",
-      );
     } finally {
       setUploadProgress(null);
       setIsWorking(false);
       router.refresh();
     }
+  }
+
+  function retryImage(image: SelectedImage) {
+    if (image.previewUrl) {
+      URL.revokeObjectURL(image.previewUrl);
+      previewUrls.current.delete(image.previewUrl);
+    }
+    setSelectedImages((current) => current.map((candidate) => candidate.id === image.id
+      ? { ...candidate, optimized: undefined, previewUrl: undefined, status: "processing", error: undefined }
+      : candidate));
+    void processAndUpload([{ ...image, optimized: undefined, previewUrl: undefined, status: "processing", error: undefined }]);
   }
 
   async function applyOrder(imageIds: string[]) {
@@ -242,7 +266,7 @@ export function PropertyImages({
       <div className="flex flex-col gap-1">
         <h2 className="text-xl font-semibold">Imágenes</h2>
         <p className="text-sm text-muted-foreground">
-          Hasta {MAX_PROPERTY_IMAGES} imágenes JPEG, PNG o WebP de 10 MB cada una.
+          Hasta {MAX_PROPERTY_IMAGES} imágenes. Original JPEG, PNG o WebP de hasta {MAX_IMAGE_INPUT_SIZE / 1024 / 1024} MB y {MAX_IMAGE_PIXELS / 1_000_000} MP; la salida se guarda como WebP de hasta {MAX_PROPERTY_IMAGE_SIZE / 1024 / 1024} MB.
           La primera imagen es la portada.
         </p>
       </div>
@@ -250,12 +274,12 @@ export function PropertyImages({
       <div className="flex flex-col gap-3 rounded-xl border bg-card p-4">
         <AdminFilePicker
           accept="image/jpeg,image/png,image/webp"
-          files={selectedImages.map((image) => image.file)}
-          hint={`JPEG, PNG o WebP · máximo 10 MB por imagen · hasta ${MAX_PROPERTY_IMAGES}`}
+          files={selectedImages.map((image) => image.original)}
+          hint={`JPEG, PNG o WebP · original hasta ${MAX_IMAGE_INPUT_SIZE / 1024 / 1024} MB y ${MAX_IMAGE_PIXELS / 1_000_000} MP · salida WebP hasta ${MAX_PROPERTY_IMAGE_SIZE / 1024 / 1024} MB · hasta ${MAX_PROPERTY_IMAGES}`}
           inputRef={inputRef}
           label="Seleccionar imágenes"
           multiple
-          disabled={isWorking || images.length >= MAX_PROPERTY_IMAGES}
+          disabled={isWorking || images.length + selectedImages.length >= MAX_PROPERTY_IMAGES}
           onChange={(files) => selectFiles(files.length > 0 ? files : null)}
           icon={ImageIcon}
         />
@@ -263,18 +287,16 @@ export function PropertyImages({
         {selectedImages.length > 0 ? (
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
             {selectedImages.map((image, index) => (
-              <img
-                key={image.previewUrl}
-                className="aspect-square w-full rounded-lg border object-cover"
-                src={image.previewUrl}
-                alt={`Vista previa de imagen seleccionada ${index + 1}`}
-              />
+              <div key={image.id}>
+                {image.previewUrl ? <img className="aspect-square w-full rounded-lg border object-cover" src={image.previewUrl} alt={`Vista previa optimizada ${index + 1}`} /> : <div className="flex aspect-square items-center justify-center rounded-lg border bg-muted p-3 text-center text-xs text-muted-foreground">{image.status === "processing" ? "Preparando imagen…" : image.original.name}</div>}
+                {image.status === "error" ? <p className="mt-1 text-xs text-destructive">✕ {image.original.name} — {image.error}</p> : null}
+                {image.status === "error" ? <Button className="mt-1" size="sm" type="button" variant="outline" disabled={isWorking} onClick={() => retryImage(image)}>Reintentar</Button> : null}
+              </div>
             ))}
           </div>
         ) : null}
 
         <div className="flex flex-wrap items-center gap-3">
-          {selectedImages.length > 0 ? <Button type="button" disabled={isWorking} onClick={() => uploadImages()}>Reintentar imágenes pendientes</Button> : null}
           {uploadProgress ? (
             <p className="text-sm text-muted-foreground" aria-live="polite">
               {uploadProgress}

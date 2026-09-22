@@ -119,7 +119,6 @@ export default async function PublicPropertyPage({ params }: PublicPropertyPageP
   const whatsappCtaClass = "public-button inline-flex min-h-12 w-full items-center justify-center gap-2.5 rounded-lg bg-primary px-5 text-center text-sm font-semibold tracking-[-0.01em] text-primary-foreground transition-[background-color,transform] duration-200 ease-out hover:-translate-y-0.5 hover:bg-primary/90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring active:translate-y-0 md:w-auto";
   const contactTitle = "¿Te interesa esta propiedad?";
   const contactDescription = "Contactanos por WhatsApp y te ayudamos con cualquier consulta.";
-  const contactNote = "Contacto directo con la inmobiliaria.";
 
   return (
     <div className="public-site flex min-h-screen flex-col overflow-x-clip">

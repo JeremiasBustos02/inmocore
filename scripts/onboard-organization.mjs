@@ -1,6 +1,4 @@
-import { readFile } from "node:fs/promises";
 import { randomUUID } from "node:crypto";
-import path from "node:path";
 import postgres from "postgres";
 import { createClient } from "@supabase/supabase-js";
 import {
@@ -15,6 +13,9 @@ const missingArgs = requiredArgs.filter((name) => !args[name]);
 
 if (missingArgs.length > 0) {
   fail(`Faltan argumentos: ${missingArgs.map((name) => `--${name}`).join(", ")}`);
+}
+if (args.logo || args.hero) {
+  fail("La carga CLI de logo y portada está deshabilitada. Creá la organización y cargá esos assets desde el panel para que se optimicen antes del upload.");
 }
 
 const databaseUrl = process.env.DIRECT_DATABASE_URL ?? process.env.DATABASE_URL;
@@ -36,7 +37,6 @@ const supabase = createClient(supabaseUrl, secretKey, {
   auth: { autoRefreshToken: false, persistSession: false },
 });
 const sql = postgres(databaseUrl, { max: 1, prepare: false, ssl: "require" });
-const uploadedPaths = [];
 let ownerId;
 
 try {
@@ -58,24 +58,6 @@ try {
   ownerId = invitedUser.user.id;
 
   const organizationId = randomUUID();
-  const assets = {};
-  for (const asset of ["logo", "hero"]) {
-    const filePath = args[asset];
-    if (!filePath) continue;
-    const extension = imageExtension(filePath);
-    if (!extension) fail(`--${asset} debe ser una imagen .jpg, .jpeg, .png o .webp.`);
-    const storagePath = `${organizationId}/${asset}/${randomUUID()}.${extension}`;
-    const { error: uploadError } = await supabase.storage
-      .from("organization-assets")
-      .upload(storagePath, await readFile(filePath), {
-        contentType: contentType(extension),
-        upsert: false,
-      });
-    if (uploadError) fail(`No se pudo subir ${asset}: ${uploadError.message}`);
-    uploadedPaths.push(storagePath);
-    assets[asset] = storagePath;
-  }
-
   await sql.begin(async (transaction) => {
     await transaction.unsafe(
        `insert into organizations
@@ -94,9 +76,9 @@ try {
         nullable(args.address),
         nullable(args["public-email"]),
         nullable(args.phone),
-        assets.logo ?? null,
+         null,
         normalizeColor(args["primary-color"]),
-        assets.hero ?? null,
+         null,
         nullable(args["hero-title"]),
         nullable(args["hero-subtitle"]),
       ],
@@ -110,9 +92,6 @@ try {
   console.log(`Organización creada: ${slug}`);
   console.log(`Owner invitado: ${args["owner-email"]}`);
 } catch (error) {
-  if (uploadedPaths.length > 0) {
-    await supabase.storage.from("organization-assets").remove(uploadedPaths);
-  }
   if (ownerId) {
     await supabase.auth.admin.deleteUser(ownerId);
   }
@@ -165,15 +144,6 @@ function getPlatformHostname() {
   } catch {
     return null;
   }
-}
-
-function imageExtension(filePath) {
-  const extension = path.extname(filePath).toLowerCase().replace(".", "");
-  return extension === "jpeg" ? "jpg" : ["jpg", "png", "webp"].includes(extension) ? extension : null;
-}
-
-function contentType(extension) {
-  return extension === "jpg" ? "image/jpeg" : `image/${extension}`;
 }
 
 function fail(message) {

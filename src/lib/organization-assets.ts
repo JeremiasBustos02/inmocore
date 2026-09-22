@@ -1,9 +1,8 @@
 export const ORGANIZATION_ASSETS_BUCKET = "organization-assets";
-export const MAX_ORGANIZATION_ASSET_SIZE = 5 * 1024 * 1024;
+export const MAX_ORGANIZATION_ASSET_INPUT_SIZE = 5 * 1024 * 1024;
+export const MAX_ORGANIZATION_ASSET_SIZE = 2 * 1024 * 1024;
 
 export const ORGANIZATION_ASSET_EXTENSIONS = {
-  "image/jpeg": "jpg",
-  "image/png": "png",
   "image/webp": "webp",
 } as const;
 

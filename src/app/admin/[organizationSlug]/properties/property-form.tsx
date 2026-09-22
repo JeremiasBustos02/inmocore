@@ -27,7 +27,15 @@ import { Textarea } from "@/components/ui/textarea";
 import { AdminFilePicker } from "@/components/admin/admin-file-picker";
 import { Image as ImageIcon, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { MAX_PROPERTY_IMAGES, MAX_PROPERTY_IMAGE_SIZE, PROPERTY_IMAGE_EXTENSIONS, PROPERTY_IMAGES_BUCKET } from "@/lib/property-images";
+import { MAX_PROPERTY_IMAGES, MAX_PROPERTY_IMAGE_SIZE, PROPERTY_IMAGES_BUCKET } from "@/lib/property-images";
+import {
+  IMAGE_CACHE_CONTROL,
+  MAX_IMAGE_INPUT_SIZE,
+  MAX_IMAGE_PIXELS,
+  PROPERTY_IMAGE_PRESET,
+  optimizeImageBatch,
+  validateImageInput,
+} from "@/lib/image-optimization";
 import { createClient } from "@/lib/supabase/client";
 import { registerPropertyImage } from "./image-actions";
 import type { properties } from "@/db/schema";
@@ -85,6 +93,16 @@ type PropertyFormProps = {
   createImageUpload?: { organizationId: string; organizationSlug: string };
 };
 
+type PendingImage = {
+  id: string;
+  original: File;
+  optimized?: File;
+  previewUrl?: string;
+  error?: string;
+  uploadError?: string;
+  status: "processing" | "ready" | "error";
+};
+
 export function PropertyForm({
   action,
   cancelHref,
@@ -100,57 +118,130 @@ export function PropertyForm({
   const router = useRouter();
   const inputRef = useRef<HTMLInputElement>(null);
   const previewUrls = useRef(new Set<string>());
-  const [files, setFiles] = useState<{ file: File; preview: string }[]>([]);
+  const [files, setFiles] = useState<PendingImage[]>([]);
   const [fileError, setFileError] = useState<string | null>(null);
   const [createError, setCreateError] = useState<string | null>(null);
   const [progress, setProgress] = useState<string | null>(null);
-  const [failedFiles, setFailedFiles] = useState<File[]>([]);
   const [createdId, setCreatedId] = useState<string | null>(null);
   const [uploadedImageCount, setUploadedImageCount] = useState(0);
   const [totalImageCount, setTotalImageCount] = useState(0);
   const [isSubmitting, setIsSubmitting] = useState(false);
   useEffect(() => () => previewUrls.current.forEach((url) => URL.revokeObjectURL(url)), []);
+  async function processImages(items: PendingImage[]) {
+    setProgress("Preparando imágenes...");
+    const results = await optimizeImageBatch(
+      items.map(({ original }) => original),
+      PROPERTY_IMAGE_PRESET,
+      (completed, total) => setProgress(`Optimizando ${completed} de ${total}...`),
+    );
+
+    setFiles((current) => {
+      const existingIds = new Set(current.map(({ id }) => id));
+      const processed: PendingImage[] = [];
+      for (const result of results) {
+        const item = items[result.index];
+        if (!existingIds.has(item.id)) continue;
+        if (!result.ok) {
+          processed.push({ ...item, status: "error", error: result.error });
+          continue;
+        }
+        const previewUrl = URL.createObjectURL(result.result.file);
+        previewUrls.current.add(previewUrl);
+        processed.push({ ...item, optimized: result.result.file, previewUrl, status: "ready", error: undefined });
+      }
+      const byId = new Map(processed.map((item) => [item.id, item]));
+      return current.map((item) => byId.get(item.id) ?? item);
+    });
+    setProgress(null);
+  }
+
   function selectFiles(selected: File[]) {
     setFileError(null);
     if (selected.length + files.length > MAX_PROPERTY_IMAGES) return setFileError(`Una propiedad puede tener hasta ${MAX_PROPERTY_IMAGES} imágenes.`);
-    const invalid = selected.find((file) => !(file.type in PROPERTY_IMAGE_EXTENSIONS) || file.size > MAX_PROPERTY_IMAGE_SIZE);
-    if (invalid) return setFileError(invalid.size > MAX_PROPERTY_IMAGE_SIZE ? "Cada imagen debe pesar 10 MB o menos." : "Sólo se permiten imágenes JPEG, PNG o WebP.");
-    setFiles((current) => [...current, ...selected.map((file) => { const preview = URL.createObjectURL(file); previewUrls.current.add(preview); return { file, preview }; })]);
+    const items = selected.map((original): PendingImage => {
+      const error = validateImageInput(original);
+      return {
+        id: crypto.randomUUID(),
+        original,
+        status: error ? "error" : "processing",
+        error: error ?? undefined,
+      };
+    });
+    const validItems = items.filter(({ status }) => status === "processing");
+    setFiles((current) => [...current, ...items]);
     if (inputRef.current) inputRef.current.value = "";
+    if (validItems.length) void processImages(validItems);
   }
-  async function uploadPending(propertyId: string, pendingFiles: File[]) {
+
+  function removeFile(id: string) {
+    setFiles((current) => {
+      const item = current.find((candidate) => candidate.id === id);
+      if (item?.previewUrl) {
+        URL.revokeObjectURL(item.previewUrl);
+        previewUrls.current.delete(item.previewUrl);
+      }
+      return current.filter((candidate) => candidate.id !== id);
+    });
+  }
+
+  async function retryProcessing(item: PendingImage) {
+    setFiles((current) => current.map((candidate) => candidate.id === item.id
+      ? { ...candidate, status: "processing", error: undefined }
+      : candidate));
+    await processImages([{ ...item, status: "processing", error: undefined }]);
+  }
+
+  async function uploadPending(propertyId: string, pendingFiles: PendingImage[]) {
     if (!createImageUpload) return;
     const supabase = createClient();
-    const failed: File[] = [];
+    const uploadedIds = new Set<string>();
     let uploadedCount = 0;
-    for (const [index, file] of pendingFiles.entries()) {
+    for (const [index, item] of pendingFiles.entries()) {
+      const file = item.optimized;
+      if (!file) continue;
       setProgress(`Subiendo imágenes… ${index + 1} de ${pendingFiles.length}`);
-      const extension = PROPERTY_IMAGE_EXTENSIONS[file.type as keyof typeof PROPERTY_IMAGE_EXTENSIONS];
-      const storagePath = `${createImageUpload.organizationId}/${propertyId}/${crypto.randomUUID()}.${extension}`;
+      const storagePath = `${createImageUpload.organizationId}/${propertyId}/${crypto.randomUUID()}.webp`;
       try {
-        const uploaded = await supabase.storage.from(PROPERTY_IMAGES_BUCKET).upload(storagePath, file, { contentType: file.type, upsert: false });
-        if (uploaded.error) { failed.push(file); continue; }
+        const uploaded = await supabase.storage.from(PROPERTY_IMAGES_BUCKET).upload(storagePath, file, { contentType: "image/webp", cacheControl: IMAGE_CACHE_CONTROL, upsert: false });
+        if (uploaded.error) {
+          setFiles((current) => current.map((candidate) => candidate.id === item.id
+            ? { ...candidate, uploadError: "No se pudo subir el WebP optimizado. Podés reintentar." }
+            : candidate));
+          continue;
+        }
         const registered = await registerPropertyImage(createImageUpload.organizationSlug, propertyId, storagePath);
-        if (registered.ok) { uploadedCount += 1; continue; }
+        if (registered.ok) { uploadedCount += 1; uploadedIds.add(item.id); continue; }
         // Storage and SQL cannot share a transaction; remove an orphan if row registration fails.
         await supabase.storage.from(PROPERTY_IMAGES_BUCKET).remove([storagePath]);
-        failed.push(file);
+        setFiles((current) => current.map((candidate) => candidate.id === item.id
+          ? { ...candidate, uploadError: registered.error }
+          : candidate));
       } catch {
-        failed.push(file);
+        setFiles((current) => current.map((candidate) => candidate.id === item.id
+          ? { ...candidate, uploadError: "No se pudo completar la subida. Podés reintentar." }
+          : candidate));
+        continue;
       }
     }
     setUploadedImageCount((count) => count + uploadedCount);
-    setFailedFiles(failed);
     setCreatedId(propertyId);
-    setFiles((current) => current.filter(({ file, preview }) => { if (failed.includes(file)) return true; URL.revokeObjectURL(preview); previewUrls.current.delete(preview); return false; }));
-    setProgress(failed.length ? `Propiedad creada. Se subieron ${uploadedImageCount + uploadedCount} de ${totalImageCount || files.length} imágenes.` : "Finalizando…");
-    if (!failed.length) router.push(`/admin/${encodeURIComponent(createImageUpload.organizationSlug)}/properties/${encodeURIComponent(propertyId)}/edit?created=1`);
-    return failed.length;
+    setFiles((current) => current.filter((item) => {
+      if (!uploadedIds.has(item.id)) return true;
+      if (item.previewUrl) {
+        URL.revokeObjectURL(item.previewUrl);
+        previewUrls.current.delete(item.previewUrl);
+      }
+      return false;
+    }));
+    const failedCount = pendingFiles.length - uploadedIds.size;
+    setProgress(failedCount ? `Propiedad creada. Se subieron ${uploadedImageCount + uploadedCount} de ${totalImageCount || pendingFiles.length} imágenes.` : "Finalizando…");
+    if (!failedCount) router.push(`/admin/${encodeURIComponent(createImageUpload.organizationSlug)}/properties/${encodeURIComponent(propertyId)}/edit?created=1`);
+    return failedCount;
   }
   async function retryPending() {
-    if (!createdId || !failedFiles.length) return;
+    if (!createdId || !files.length) return;
     setIsSubmitting(true);
-    try { await uploadPending(createdId, failedFiles); }
+    try { await uploadPending(createdId, files.filter(({ status }) => status === "ready")); }
     finally { setIsSubmitting(false); }
   }
   async function handleCreate(event: React.FormEvent<HTMLFormElement>) {
@@ -169,8 +260,8 @@ export function PropertyForm({
       }
       setCreatedId(result.propertyId);
       setTotalImageCount(files.length);
-      if (!files.length) { setProgress("Finalizando…"); router.push(`/admin/${encodeURIComponent(createImageUpload.organizationSlug)}/properties/${encodeURIComponent(result.propertyId)}/edit?created=1`); return; }
-      await uploadPending(result.propertyId, files.map(({ file }) => file));
+       if (!files.length) { setProgress("Finalizando…"); router.push(`/admin/${encodeURIComponent(createImageUpload.organizationSlug)}/properties/${encodeURIComponent(result.propertyId)}/edit?created=1`); return; }
+       await uploadPending(result.propertyId, files);
     } catch { setProgress("No se pudo crear la propiedad. Revisá los datos e intentá nuevamente."); }
     finally { setIsSubmitting(false); }
   }
@@ -192,7 +283,7 @@ export function PropertyForm({
       {createError ? <Field data-invalid><FieldError>{createError}</FieldError></Field> : null}
 
       <FieldSet>
-        {createImageUpload ? <><FieldLegend>Fotos</FieldLegend><FieldGroup><Field><FieldLabel>Imágenes</FieldLabel><AdminFilePicker accept="image/jpeg,image/png,image/webp" files={files.map(({ file }) => file)} hint={`JPEG, PNG o WebP · máximo 10 MB por imagen · hasta ${MAX_PROPERTY_IMAGES}`} inputRef={inputRef} label="Seleccionar imágenes" multiple disabled={isSubmitting || files.length >= MAX_PROPERTY_IMAGES} onChange={selectFiles} icon={ImageIcon} />{fileError ? <FieldError>{fileError}</FieldError> : null}{files.length ? <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">{files.map(({ file, preview }, index) => <div className="relative" key={preview}><img className="aspect-square w-full rounded-lg border object-cover" src={preview} alt={`Vista previa ${index + 1}`} /><span className="absolute left-2 top-2 rounded bg-background/90 px-2 py-1 text-xs">{index === 0 ? "Portada" : `Foto ${index + 1}`}</span><Button className="absolute right-2 top-2" size="icon" type="button" variant="destructive" aria-label={`Eliminar ${file.name}`} onClick={() => { URL.revokeObjectURL(preview); previewUrls.current.delete(preview); setFiles((current) => current.filter((item) => item.preview !== preview)); }}><Trash2 /></Button></div>)}</div> : null}{createdId && failedFiles.length ? <Button type="button" variant="outline" disabled={isSubmitting} onClick={retryPending}>Reintentar imágenes pendientes</Button> : null}{progress ? <p className="text-sm text-muted-foreground" aria-live="polite">{progress}</p> : null}</Field></FieldGroup></> : null}
+        {createImageUpload ? <><FieldLegend>Fotos</FieldLegend><FieldGroup><Field><FieldLabel>Imágenes</FieldLabel><AdminFilePicker accept="image/jpeg,image/png,image/webp" files={files.map(({ original }) => original)} hint={`JPEG, PNG o WebP · original máximo ${MAX_IMAGE_INPUT_SIZE / 1024 / 1024} MB · salida WebP hasta ${MAX_PROPERTY_IMAGE_SIZE / 1024 / 1024} MB · máximo ${MAX_PROPERTY_IMAGES} · ${MAX_IMAGE_PIXELS / 1_000_000} MP`} inputRef={inputRef} label="Seleccionar imágenes" multiple disabled={isSubmitting || Boolean(progress) || files.length >= MAX_PROPERTY_IMAGES} onChange={selectFiles} icon={ImageIcon} />{fileError ? <FieldError>{fileError}</FieldError> : null}{files.length ? <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">{files.map((item, index) => <div className="relative" key={item.id}>{item.previewUrl ? <img className="aspect-square w-full rounded-lg border object-cover" src={item.previewUrl} alt={`Vista previa procesada de ${item.original.name}`} /> : <div className="flex aspect-square items-center justify-center rounded-lg border bg-muted p-3 text-center text-xs text-muted-foreground">{item.status === "processing" ? "Preparando imagen…" : item.original.name}</div>}<span className="absolute left-2 top-2 rounded bg-background/90 px-2 py-1 text-xs">{index === 0 ? "Portada" : `Foto ${index + 1}`}</span>{item.status === "error" ? <p className="mt-1 text-xs text-destructive">✕ {item.original.name} — {item.error}</p> : item.uploadError ? <p className="mt-1 text-xs text-destructive">✕ {item.original.name} — {item.uploadError}</p> : item.status === "ready" ? <p className="mt-1 truncate text-xs text-muted-foreground">✓ {item.original.name}</p> : null}{item.status === "error" ? <Button type="button" size="sm" variant="outline" onClick={() => void retryProcessing(item)}>Reintentar</Button> : null}<Button className="absolute right-2 top-2" size="icon" type="button" variant="destructive" aria-label={`Eliminar ${item.original.name}`} disabled={item.status === "processing" || isSubmitting} onClick={() => removeFile(item.id)}><Trash2 /></Button></div>)}</div> : null}{createdId && files.length ? <Button type="button" variant="outline" disabled={isSubmitting || Boolean(progress)} onClick={retryPending}>Reintentar imágenes pendientes</Button> : null}{progress ? <p className="text-sm text-muted-foreground" aria-live="polite">{progress}</p> : null}</Field></FieldGroup></> : null}
       </FieldSet>
 
       <FieldSet>
@@ -340,7 +431,7 @@ export function PropertyForm({
 
       <div className="flex flex-wrap justify-end gap-3">
         <Link className={buttonVariants({ variant: "outline" })} href={cancelHref}>Cancelar</Link>
-        {createImageUpload ? <Button disabled={isSubmitting || Boolean(fileError) || Boolean(createdId)} type="submit">{createdId ? "Propiedad creada" : isSubmitting ? progress ?? "Procesando…" : submitLabel}</Button> : <AdminSubmitButton pendingLabel={pendingLabel}>{submitLabel}</AdminSubmitButton>}
+        {createImageUpload ? <Button disabled={isSubmitting || Boolean(fileError) || Boolean(createdId) || Boolean(progress) || files.some(({ status }) => status !== "ready")} type="submit">{createdId ? "Propiedad creada" : isSubmitting ? progress ?? "Procesando…" : submitLabel}</Button> : <AdminSubmitButton pendingLabel={pendingLabel}>{submitLabel}</AdminSubmitButton>}
       </div>
     </form>
   );
