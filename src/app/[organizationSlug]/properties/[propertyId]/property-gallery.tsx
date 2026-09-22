@@ -121,7 +121,7 @@ export function PropertyGallery({ images, propertyTitle, city }: PropertyGallery
             <X aria-hidden="true" className="size-5" />
           </button>
 
-          <div className="relative h-[min(78vh,720px)] w-full max-w-6xl">
+          <div className="relative h-[min(78vh,720px)] w-full max-w-7xl">
             <Image alt={`${imageAlt}, imagen ${(activeIndex ?? 0) + 1}`} className="object-contain" fill priority sizes="(max-width: 768px) 100vw, 90vw" src={activeImage.url} />
           </div>
 

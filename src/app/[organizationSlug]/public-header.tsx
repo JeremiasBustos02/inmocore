@@ -25,14 +25,14 @@ export function PublicHeader({
   ];
 
   return (
-    <header className="relative z-40 border-b border-border bg-background">
+    <header className="sticky top-0 z-40 border-b border-border bg-background/95 backdrop-blur-sm">
       <a
         className="fixed left-4 top-4 z-50 -translate-y-24 rounded-lg bg-primary px-4 py-3 text-sm font-semibold text-primary-foreground transition-transform focus-visible:translate-y-0"
         href="#contenido-principal"
       >
         Saltar al contenido
       </a>
-      <div className="mx-auto flex h-[72px] w-full max-w-[1320px] items-center justify-between px-5 sm:h-20 sm:px-8 lg:px-10">
+      <div className="mx-auto flex h-[72px] w-full max-w-[1440px] items-center justify-between px-5 sm:h-20 sm:px-8 lg:px-8">
         <Link
           className="min-w-0 max-w-[14rem] flex-1 truncate text-[15px] font-semibold leading-tight tracking-[-0.01em] focus-visible:rounded-sm focus-visible:outline-2 focus-visible:outline-offset-4 sm:max-w-xs sm:text-base"
           href={homeHref}

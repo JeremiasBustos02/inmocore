@@ -108,7 +108,7 @@ export default async function PublicHomePage({ params }: PublicHomePageProps) {
 
   return (
     <PublicSiteVariant siteVariant={organization.siteVariant}>
-    <div className="public-site overflow-x-hidden">
+    <div className="public-site overflow-x-clip">
       <PublicHeader
         organizationName={organization.name}
         publicBasePath={publicBasePath}
@@ -137,7 +137,7 @@ export default async function PublicHomePage({ params }: PublicHomePageProps) {
             className={`absolute inset-0 ${heroImageUrl ? "bg-black/45" : "bg-black/5"}`}
           />
           <div
-            className={`public-hero-content relative mx-auto flex w-full max-w-[1320px] flex-col items-center px-5 pt-16 text-center sm:px-8 sm:pt-20 lg:px-10 lg:pt-24 ${heroProperty ? "text-white" : "text-foreground"}`}
+             className={`public-hero-content relative mx-auto flex w-full max-w-[1440px] flex-col items-center px-5 pt-16 text-center sm:px-8 sm:pt-20 lg:px-8 lg:pt-24 ${heroProperty ? "text-white" : "text-foreground"}`}
           >
             <h1
               className="w-full max-w-4xl text-balance text-[clamp(2.45rem,5vw,4.5rem)] font-semibold leading-[1.04] tracking-[-0.04em]"
@@ -156,7 +156,7 @@ export default async function PublicHomePage({ params }: PublicHomePageProps) {
 
         <section
           aria-labelledby="featured-title"
-          className="mx-auto w-full max-w-[1320px] scroll-mt-6 px-5 pb-16 pt-14 sm:px-8 sm:pb-20 sm:pt-16 lg:px-10 lg:pb-20 lg:pt-20"
+           className="mx-auto w-full max-w-[1440px] scroll-mt-6 px-5 pb-16 pt-14 sm:px-8 sm:pb-20 sm:pt-16 lg:px-8 lg:pb-20 lg:pt-20"
           id="propiedades"
         >
           <div className="mb-9 flex flex-col gap-5 border-b border-border pb-7 sm:flex-row sm:items-end sm:justify-between">
@@ -220,7 +220,7 @@ export default async function PublicHomePage({ params }: PublicHomePageProps) {
         </section>
 
         <section aria-labelledby="estudio-title" className="scroll-mt-6 border-t border-border bg-muted" id="estudio">
-          <div className="mx-auto grid w-full max-w-[1320px] gap-16 px-5 py-16 sm:px-8 sm:py-20 md:grid-cols-[1.15fr_.85fr] md:gap-20 lg:gap-32 lg:px-10 lg:py-24">
+           <div className="mx-auto grid w-full max-w-[1440px] gap-16 px-5 py-16 sm:px-8 sm:py-20 md:grid-cols-[1.15fr_.85fr] md:gap-20 lg:gap-32 lg:px-8 lg:py-24">
             <div className="max-w-2xl">
               <p className="text-xs font-semibold tracking-[0.22em] text-primary/70">¿POR QUÉ ELEGIRNOS?</p>
               <h2 className="mt-6 text-balance text-[clamp(2.6rem,5.4vw,5.25rem)] font-semibold leading-[1.02] tracking-[-0.055em]" id="estudio-title">
@@ -242,7 +242,7 @@ export default async function PublicHomePage({ params }: PublicHomePageProps) {
         </section>
 
          <section aria-labelledby="contact-title" className="scroll-mt-6 border-t border-border bg-muted" id="contacto">
-           <div className="mx-auto w-full max-w-[1320px] px-5 py-16 sm:px-8 sm:py-20 lg:px-10 lg:py-24">
+            <div className="mx-auto w-full max-w-[1440px] px-5 py-16 sm:px-8 sm:py-20 lg:px-8 lg:py-24">
              <div className="max-w-2xl">
                <p className="text-xs font-semibold tracking-[0.24em] text-muted-foreground">HABLEMOS</p>
                <h2 className="mt-5 text-balance text-[clamp(2.25rem,4.5vw,4.25rem)] font-semibold leading-[1.04] tracking-[-0.045em]" id="contact-title">

@@ -124,10 +124,10 @@ export default async function PublicPropertyPage({ params }: PublicPropertyPageP
   const contactNote = "Contacto directo con la inmobiliaria.";
 
   return (
-    <div className="public-site flex min-h-screen flex-col overflow-x-hidden">
+    <div className="public-site flex min-h-screen flex-col overflow-x-clip">
        <PublicHeader organizationName={organization.name} publicBasePath={publicBasePath} logoUrl={getPublicOrganizationAssetUrl(organization.logoPath)} />
       <main className="flex-1" id="contenido-principal">
-        <article className="mx-auto w-full max-w-[1320px] px-5 py-10 sm:px-8 sm:py-14 lg:px-10 lg:py-16">
+        <article className="mx-auto w-full max-w-[1440px] px-5 py-10 sm:px-8 sm:py-14 lg:px-8 lg:py-16">
           <Link className="public-link inline-flex items-center gap-2 text-sm font-semibold" href={catalogHref}>
             <ArrowLeft aria-hidden="true" className="size-4" />
             Volver a propiedades

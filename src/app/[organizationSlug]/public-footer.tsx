@@ -27,7 +27,7 @@ export function PublicFooter({
 
   return (
     <footer className="border-t border-border bg-muted/40">
-      <div className={`mx-auto grid w-full max-w-[1320px] gap-10 px-5 py-14 sm:px-8 lg:px-10 lg:py-16 ${hasContact ? "md:grid-cols-[1.4fr_.8fr_1fr]" : "md:grid-cols-[1.4fr_.8fr]"}`}>
+      <div className={`mx-auto grid w-full max-w-[1440px] gap-10 px-5 py-14 sm:px-8 lg:px-8 lg:py-16 ${hasContact ? "md:grid-cols-[1.4fr_.8fr_1fr]" : "md:grid-cols-[1.4fr_.8fr]"}`}>
         <div>
           <Link className="inline-flex max-w-[15rem] items-center focus-visible:rounded-sm focus-visible:outline-2 focus-visible:outline-offset-4" href={homeHref}>
             {logoUrl ? <Image alt={organizationName} className="h-12 w-auto max-w-[13rem] object-contain object-left" height={48} sizes="208px" src={logoUrl} width={208} /> : <span className="text-lg font-semibold tracking-[-0.02em]">{organizationName}</span>}
@@ -50,7 +50,7 @@ export function PublicFooter({
         </div> : null}
       </div>
       <div className="border-t border-border">
-        <div className="mx-auto flex w-full max-w-[1320px] flex-col gap-2 px-5 py-5 text-xs text-muted-foreground sm:flex-row sm:items-center sm:justify-between sm:px-8 lg:px-10">
+        <div className="mx-auto flex w-full max-w-[1440px] flex-col gap-2 px-5 py-5 text-xs text-muted-foreground sm:flex-row sm:items-center sm:justify-between sm:px-8 lg:px-8">
           <p>© {new Date().getFullYear()} {organizationName}</p>
           <p>{organizationName}</p>
         </div>

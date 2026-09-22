@@ -80,10 +80,10 @@ export default async function PublicPropertiesPage({
   };
 
   return (
-    <div className="public-site flex min-h-screen flex-col overflow-x-hidden">
+    <div className="public-site flex min-h-screen flex-col overflow-x-clip">
        <PublicHeader organizationName={organization.name} publicBasePath={publicBasePath} logoUrl={getPublicOrganizationAssetUrl(organization.logoPath)} />
       <main className="flex-1" id="contenido-principal">
-        <section className="mx-auto w-full max-w-[1320px] px-5 py-12 sm:px-8 sm:py-16 lg:px-10 lg:py-20">
+         <section className="mx-auto w-full max-w-[1440px] px-5 py-12 sm:px-8 sm:py-16 lg:px-8 lg:py-20">
           <div className="max-w-3xl">
             <h1 className="text-balance text-[clamp(2.25rem,4vw,3.75rem)] font-semibold leading-[1.08] tracking-[-0.04em]">
               {title}
@@ -93,15 +93,17 @@ export default async function PublicPropertiesPage({
             </p>
           </div>
 
-          <div className="mt-9">
-            <CatalogFilters
-              cities={cities}
-              filters={filters}
-               publicBasePath={publicBasePath}
-            />
-          </div>
+          <div className="mt-9 grid gap-10 lg:grid-cols-[280px_minmax(0,1fr)] lg:items-start lg:gap-12">
+            <aside className="min-w-0 lg:sticky lg:top-[calc(var(--public-header-height)_+_1rem)] lg:self-start">
+              <CatalogFilters
+                cities={cities}
+                filters={filters}
+                publicBasePath={publicBasePath}
+              />
+            </aside>
 
-          <div className="mt-12 flex flex-col gap-5 border-b border-border pb-6 sm:flex-row sm:items-end sm:justify-between">
+            <div className="min-w-0">
+          <div className="flex flex-col gap-5 border-b border-border pb-6 sm:flex-row sm:items-end sm:justify-between">
             <div>
               <h2 className="text-2xl font-semibold tracking-[-0.025em]">Resultados</h2>
               <p className="mt-1.5 text-sm text-muted-foreground">{resultLabel}</p>
@@ -112,7 +114,7 @@ export default async function PublicPropertiesPage({
           </div>
 
           {result.properties.length > 0 ? (
-            <div className="mt-9 grid gap-x-6 gap-y-12 md:grid-cols-2 xl:grid-cols-3">
+            <div className="mt-9 grid gap-x-6 gap-y-12 lg:grid-cols-2 xl:grid-cols-3">
               {result.properties.map((property) => (
                 <PropertyCard
                   key={property.id}
@@ -163,6 +165,8 @@ export default async function PublicPropertiesPage({
               )}
             </nav>
           ) : null}
+            </div>
+          </div>
         </section>
       </main>
        <PublicFooter

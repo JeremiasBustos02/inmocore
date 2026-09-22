@@ -107,6 +107,7 @@ type FilterFieldsProps = {
   idPrefix: string;
   onSelectChange?: (name: FilterSelectName, value: string) => void;
   selectValues: FilterSelectValues;
+  stacked?: boolean;
 };
 
 type FilterSelectName = "operation" | "type" | "city" | "bedrooms" | "bathrooms";
@@ -122,14 +123,14 @@ function getSelectValues(filters: PublicPropertyFilters): FilterSelectValues {
   };
 }
 
-function FilterFields({ cities, filters, idPrefix, onSelectChange, selectValues }: FilterFieldsProps) {
+function FilterFields({ cities, filters, idPrefix, onSelectChange, selectValues, stacked = false }: FilterFieldsProps) {
   const legacyMinimum = filters.price === "over-250000" ? 250001 : undefined;
   const legacyMaximum = filters.price && filters.price !== "over-250000"
     ? Number(filters.price)
     : undefined;
 
   return (
-    <FieldGroup className="grid min-w-0 gap-4 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-7">
+    <FieldGroup className={cn("min-w-0 gap-4", stacked ? "flex flex-col" : "grid sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-7")}>
         <FilterSelect
           idPrefix={idPrefix}
           label="Operación"
@@ -296,6 +297,7 @@ function FilterForm({
             }
           : onSelectChange}
         selectValues={selectValues}
+        stacked={autoApply}
       />
 
       {filters.sort !== "newest" ? (

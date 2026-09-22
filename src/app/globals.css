@@ -131,6 +131,7 @@
 }
 
 .public-site {
+  --public-header-height: 4.5rem;
   --background: #ffffff;
   --foreground: #171717;
   --card: #ffffff;
@@ -145,6 +146,12 @@
   min-height: 100vh;
   background: var(--background);
   color: var(--foreground);
+}
+
+@media (min-width: 640px) {
+  .public-site {
+    --public-header-height: 5rem;
+  }
 }
 
 .public-site-editorial .public-site {
