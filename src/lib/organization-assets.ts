@@ -14,6 +14,10 @@ export function getSafeBrandColor(value: string | null) {
 }
 
 export function getOrganizationAssetUrl(storagePath: string) {
+  if (storagePath.startsWith("public/")) {
+    return `/${storagePath.slice("public/".length)}`;
+  }
+
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
 
   if (!supabaseUrl) {

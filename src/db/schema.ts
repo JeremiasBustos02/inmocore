@@ -61,6 +61,7 @@ export const organizations = pgTable(
     slug: text("slug").notNull().unique(),
     customDomain: text("custom_domain").unique(),
     siteVariant: text("site_variant").default("default").notNull(),
+    isDemo: boolean("is_demo").default(false).notNull(),
     whatsappPhone: text("whatsapp_phone"),
     contactAddress: text("contact_address"),
     contactEmail: text("contact_email"),

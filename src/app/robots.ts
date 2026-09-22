@@ -18,7 +18,7 @@ export default async function robots(): Promise<MetadataRoute.Robots> {
     const organization = await getPublicOrganization(
       `${CUSTOM_DOMAIN_ROUTE_PREFIX}${customDomain}`,
     );
-    if (!organization) {
+    if (!organization || organization.isDemo) {
       return { rules: { userAgent: "*", disallow: "/" } };
     }
 

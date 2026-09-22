@@ -168,6 +168,7 @@ export const getPublicOrganization = cache(async (organizationSlug: string) => {
       slug: organizations.slug,
       customDomain: organizations.customDomain,
       siteVariant: organizations.siteVariant,
+      isDemo: organizations.isDemo,
       whatsappPhone: organizations.whatsappPhone,
       contactAddress: organizations.contactAddress,
       contactEmail: organizations.contactEmail,
@@ -199,12 +200,17 @@ export async function getPublicOrganizations() {
       id: organizations.id,
       slug: organizations.slug,
       customDomain: organizations.customDomain,
+      isDemo: organizations.isDemo,
     })
     .from(organizations)
     .orderBy(asc(organizations.slug));
 }
 
 function getPublicImageUrl(storagePath: string) {
+  if (storagePath.startsWith("public/")) {
+    return `/${storagePath.slice("public/".length)}`;
+  }
+
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
 
   if (!supabaseUrl) {
@@ -407,6 +413,7 @@ export async function getPublicPropertyPaths(organizationId?: string) {
     .select({
       organizationSlug: organizations.slug,
       organizationCustomDomain: organizations.customDomain,
+      organizationIsDemo: organizations.isDemo,
       propertyId: properties.id,
     })
     .from(properties)

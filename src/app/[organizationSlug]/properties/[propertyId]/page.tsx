@@ -58,6 +58,7 @@ export async function generateMetadata({
           }
         : {}),
     },
+    ...(organization.isDemo ? { robots: { index: false, follow: false } } : {}),
   };
 }
 

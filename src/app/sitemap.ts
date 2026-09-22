@@ -9,6 +9,7 @@ import {
   CUSTOM_DOMAIN_HEADER,
   CUSTOM_DOMAIN_ROUTE_PREFIX,
   getOrganizationPublicUrl,
+  getPublicSiteUrl,
   normalizeCustomDomain,
 } from "@/lib/public-site";
 
@@ -21,7 +22,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     const organization = await getPublicOrganization(
       `${CUSTOM_DOMAIN_ROUTE_PREFIX}${customDomain}`,
     );
-    if (!organization) return [];
+    if (!organization || organization.isDemo) return [];
 
     const propertyPaths = await getPublicPropertyPaths(organization.id);
     return [
@@ -36,13 +37,17 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     ];
   }
 
+  if (!getPublicSiteUrl()) return [];
+
   const [organizations, propertyPaths] = await Promise.all([
     getPublicOrganizations(),
     getPublicPropertyPaths(),
   ]);
 
   const urls: MetadataRoute.Sitemap = [];
-  for (const organization of organizations.filter(({ customDomain }) => !customDomain)) {
+  for (const organization of organizations.filter(
+    ({ customDomain, isDemo }) => !customDomain && !isDemo,
+  )) {
     const homeUrl = getOrganizationPublicUrl(organization);
     const catalogUrl = getOrganizationPublicUrl(organization, "/properties");
     if (!homeUrl || !catalogUrl) continue;
@@ -53,7 +58,8 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   }
 
   for (const property of propertyPaths.filter(
-    ({ organizationCustomDomain }) => !organizationCustomDomain,
+    ({ organizationCustomDomain, organizationIsDemo }) =>
+      !organizationCustomDomain && !organizationIsDemo,
   )) {
     const organization = {
       slug: property.organizationSlug,

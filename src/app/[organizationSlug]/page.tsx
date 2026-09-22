@@ -50,6 +50,7 @@ export async function generateMetadata({
         : {}),
     },
     ...(canonical ? { alternates: { canonical } } : {}),
+    ...(organization.isDemo ? { robots: { index: false, follow: false } } : {}),
   };
 }
 
@@ -60,7 +61,7 @@ const propertyTypes = [
   { label: "Locales", value: "commercial" },
 ] as const;
 
-const benefits = [
+const verifiedBenefits = [
   {
     title: "Conocemos la zona",
     description: "Conocemos el mercado inmobiliario de la región y sus alrededores.",
@@ -72,6 +73,21 @@ const benefits = [
   {
     title: "Hablamos claro",
     description: "Información simple y transparente para que puedas decidir tranquilo.",
+  },
+];
+
+const demoBenefits = [
+  {
+    title: "Una presencia propia",
+    description: "Una web pensada para que la identidad de la inmobiliaria esté al frente.",
+  },
+  {
+    title: "Propiedades al frente",
+    description: "Una búsqueda clara para recorrer oportunidades desde cualquier dispositivo.",
+  },
+  {
+    title: "Contacto directo",
+    description: "Un recorrido simple para pasar de la consulta a la conversación.",
   },
 ];
 
@@ -88,6 +104,7 @@ export default async function PublicHomePage({ params }: PublicHomePageProps) {
   const heroProperty = propertyList.find((property) => property.coverUrl);
   const heroImageUrl = getPublicOrganizationAssetUrl(organization.heroImagePath) ?? heroProperty?.coverUrl;
   const publicBasePath = getPublicBasePath(organizationSlug, organization.slug);
+  const benefits = organization.isDemo ? demoBenefits : verifiedBenefits;
 
   return (
     <PublicSiteVariant siteVariant={organization.siteVariant}>
@@ -210,7 +227,9 @@ export default async function PublicHomePage({ params }: PublicHomePageProps) {
             <div className="max-w-2xl">
               <p className="text-xs font-semibold tracking-[0.22em] text-primary/70">¿POR QUÉ ELEGIRNOS?</p>
               <h2 className="mt-6 text-balance text-[clamp(2.6rem,5.4vw,5.25rem)] font-semibold leading-[1.02] tracking-[-0.055em]" id="estudio-title">
-                Conocemos la zona. Te acompañamos. Hablamos claro.
+                {organization.isDemo
+                  ? "Una web propia para presentar propiedades con claridad."
+                  : "Conocemos la zona. Te acompañamos. Hablamos claro."}
               </h2>
             </div>
 
