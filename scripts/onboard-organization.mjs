@@ -3,6 +3,11 @@ import { randomUUID } from "node:crypto";
 import path from "node:path";
 import postgres from "postgres";
 import { createClient } from "@supabase/supabase-js";
+import {
+  normalizeCustomDomain,
+  normalizeSiteVariant,
+  normalizeSlug,
+} from "../src/lib/organization-validation.mjs";
 
 const args = parseArgs(process.argv.slice(2));
 const requiredArgs = ["name", "slug", "owner-email"];
@@ -14,23 +19,20 @@ if (missingArgs.length > 0) {
 
 const databaseUrl = process.env.DIRECT_DATABASE_URL ?? process.env.DATABASE_URL;
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+const secretKey = process.env.SUPABASE_SECRET_KEY;
 
-if (!databaseUrl || !supabaseUrl || !serviceRoleKey) {
-  fail("Requeridos: DIRECT_DATABASE_URL (o DATABASE_URL), NEXT_PUBLIC_SUPABASE_URL y SUPABASE_SERVICE_ROLE_KEY.");
+if (!databaseUrl || !supabaseUrl || !secretKey) {
+  fail("Requeridos: DIRECT_DATABASE_URL (o DATABASE_URL), NEXT_PUBLIC_SUPABASE_URL y SUPABASE_SECRET_KEY.");
 }
 
-const slug = args.slug.toLowerCase();
-if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(slug) || slug.length > 80) {
-  fail("El slug debe usar sólo minúsculas, números y guiones, con máximo 80 caracteres.");
-}
+const slug = normalizeSlug(args.slug);
 if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(args["owner-email"])) {
   fail("El email del owner no es válido.");
 }
-const customDomain = normalizeCustomDomain(args["custom-domain"]);
+const customDomain = normalizeCustomDomain(args["custom-domain"], getPlatformHostname());
 const siteVariant = normalizeSiteVariant(args["site-variant"]);
 
-const supabase = createClient(supabaseUrl, serviceRoleKey, {
+const supabase = createClient(supabaseUrl, secretKey, {
   auth: { autoRefreshToken: false, persistSession: false },
 });
 const sql = postgres(databaseUrl, { max: 1, prepare: false, ssl: "require" });
@@ -149,37 +151,6 @@ function normalizeColor(value) {
   return normalized;
 }
 
-function normalizeCustomDomain(value) {
-  const domain = nullable(value)?.toLowerCase().replace(/\.$/, "") ?? null;
-  if (!domain) return null;
-  if (
-    domain.length > 253 ||
-    domain.includes(":") ||
-    domain.includes("/") ||
-    domain.includes("@") ||
-    domain.includes("?") ||
-    domain.includes("#")
-  ) {
-    fail("--custom-domain debe ser un hostname sin protocolo, puerto ni path.");
-  }
-  const labels = domain.split(".");
-  if (
-    labels.length < 2 ||
-    labels.some((label) =>
-      label.length === 0 ||
-      label.length > 63 ||
-      !/^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?$/.test(label)
-    )
-  ) {
-    fail("--custom-domain no es un hostname válido.");
-  }
-  const platformHostname = getPlatformHostname();
-  if (domain === platformHostname || domain.endsWith(".vercel.app")) {
-    fail("--custom-domain no puede ser el hostname de la plataforma o de Vercel.");
-  }
-  return domain;
-}
-
 function getPlatformHostname() {
   const siteUrl = nullable(process.env.NEXT_PUBLIC_SITE_URL);
   if (!siteUrl) return null;
@@ -188,14 +159,6 @@ function getPlatformHostname() {
   } catch {
     return null;
   }
-}
-
-function normalizeSiteVariant(value) {
-  const siteVariant = nullable(value)?.toLowerCase() ?? "default";
-  if (!["default", "editorial"].includes(siteVariant)) {
-    fail("--site-variant debe ser default o editorial.");
-  }
-  return siteVariant;
 }
 
 function imageExtension(filePath) {

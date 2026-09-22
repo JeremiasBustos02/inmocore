@@ -17,7 +17,13 @@ No crear SQL de schema manualmente ni agregar entradas a `_journal.json` a mano.
 
 Requeridas: `DATABASE_URL`, `DIRECT_DATABASE_URL` (migraciones y backup), `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`.
 
-Opcionales: `NEXT_PUBLIC_SITE_URL` (origen de la plataforma para organizaciones sin dominio propio, sitemap y robots), `SUPABASE_INVITE_REDIRECT_URL` (redirección de invitaciones) y `SUPABASE_SERVICE_ROLE_KEY` (sólo para `pnpm client:onboard`, nunca para el navegador).
+Opcionales: `NEXT_PUBLIC_SITE_URL` (origen de la plataforma para organizaciones sin dominio propio, sitemap y robots), `SUPABASE_INVITE_REDIRECT_URL` (redirección de invitaciones), `SUPABASE_SECRET_KEY` (sólo para `pnpm client:onboard`, `pnpm client:add-member` y el provider backoffice, nunca para el navegador), `SUPABASE_MEMBER_PASSWORD` (sólo localmente con `client:add-member --mode create`, nunca commitearla) y `PLATFORM_ADMIN_USER_IDS` (IDs de usuarios Supabase autorizados al provider backoffice, separados por comas o espacios).
+
+## Provider backoffice
+
+El panel interno vive en `/control` y sólo permite el acceso a los usuarios cuyos IDs estén configurados en `PLATFORM_ADMIN_USER_IDS`. Esta autorización es independiente de los roles `owner`, `admin` y `agent` de cada organización. Desde allí se pueden listar organizaciones, crear una nueva, editar `isDemo`, `siteVariant` y `customDomain`, y agregar memberships. Las acciones sensibles validan nuevamente la identidad server-side y `SUPABASE_SECRET_KEY` sólo se usa en el servidor.
+
+En Vercel, configurar `SUPABASE_SECRET_KEY` como Environment Variable privada para los entornos que ejecuten el backoffice. No crear una variable `NEXT_PUBLIC_SUPABASE_SECRET_KEY`: cualquier variable con ese prefijo puede llegar al navegador.
 
 ## Storage
 

@@ -2,14 +2,16 @@ import { redirect } from "next/navigation";
 import { login } from "@/app/auth-actions";
 import { Button } from "@/components/ui/button";
 import { getAuthenticatedUserId } from "@/lib/auth";
+import { isPlatformAdminUser } from "@/lib/platform-admin";
 
 type LoginPageProps = {
   searchParams: Promise<{ error?: string }>;
 };
 
 export default async function LoginPage({ searchParams }: LoginPageProps) {
-  if (await getAuthenticatedUserId()) {
-    redirect("/admin");
+  const userId = await getAuthenticatedUserId();
+  if (userId) {
+    redirect(isPlatformAdminUser(userId) ? "/control" : "/admin");
   }
 
   const { error } = await searchParams;

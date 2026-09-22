@@ -1,6 +1,7 @@
 "use server";
 
 import { redirect } from "next/navigation";
+import { isPlatformAdminUser } from "@/lib/platform-admin";
 import { createClient } from "@/lib/supabase/server";
 
 export async function login(formData: FormData) {
@@ -12,13 +13,13 @@ export async function login(formData: FormData) {
   }
 
   const supabase = await createClient();
-  const { error } = await supabase.auth.signInWithPassword({ email, password });
+  const { data, error } = await supabase.auth.signInWithPassword({ email, password });
 
   if (error) {
     redirect("/login?error=invalid_credentials");
   }
 
-  redirect("/admin");
+  redirect(data.user && isPlatformAdminUser(data.user.id) ? "/control" : "/admin");
 }
 
 export async function logout() {
