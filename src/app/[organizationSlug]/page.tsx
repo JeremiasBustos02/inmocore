@@ -219,41 +219,46 @@ export default async function PublicHomePage({ params }: PublicHomePageProps) {
           </div>
         </section>
 
-        <section aria-labelledby="estudio-title" className="scroll-mt-6 border-t border-border bg-muted" id="estudio">
-           <div className="mx-auto grid w-full max-w-[1440px] gap-16 px-5 py-16 sm:px-8 sm:py-20 md:grid-cols-[1.15fr_.85fr] md:gap-20 lg:gap-32 lg:px-8 lg:py-24">
-            <div className="max-w-2xl">
-              <p className="text-xs font-semibold tracking-[0.22em] text-primary/70">¿POR QUÉ ELEGIRNOS?</p>
-              <h2 className="mt-6 text-balance text-[clamp(2.6rem,5.4vw,5.25rem)] font-semibold leading-[1.02] tracking-[-0.055em]" id="estudio-title">
-                {organization.isDemo
-                  ? "Una web propia para presentar propiedades con claridad."
-                  : "Conocemos la zona. Te acompañamos. Hablamos claro."}
-              </h2>
-            </div>
+         <div className="border-t border-border bg-muted">
+           <section aria-labelledby="estudio-title" className="scroll-mt-6" id="estudio">
+              <div className="mx-auto grid w-full max-w-[1440px] gap-16 px-5 pb-10 pt-16 sm:px-8 sm:pb-14 sm:pt-20 md:grid-cols-[1.15fr_.85fr] md:gap-20 lg:gap-32 lg:px-8 lg:pb-16 lg:pt-24">
+               <div className="max-w-2xl">
+                 <p className="text-xs font-semibold tracking-[0.22em] text-primary/70">¿POR QUÉ ELEGIRNOS?</p>
+                 <h2 className="mt-6 text-balance text-[clamp(2.6rem,5.4vw,5.25rem)] font-semibold leading-[1.02] tracking-[-0.055em]" id="estudio-title">
+                   {organization.isDemo
+                     ? "Una web propia para presentar propiedades con claridad."
+                     : "Conocemos la zona. Te acompañamos. Hablamos claro."}
+                 </h2>
+               </div>
 
-            <div className="md:pt-3">
-              {benefits.map(({ title, description }, index) => (
-                <article className={`py-7 ${index > 0 ? "border-t border-border" : ""}`} key={title}>
-                  <h3 className="text-xl font-semibold tracking-[-0.025em]">{title}</h3>
-                  <p className="mt-3 max-w-sm text-sm leading-6 text-muted-foreground">{description}</p>
-                </article>
-              ))}
-            </div>
-          </div>
-        </section>
-
-         <section aria-labelledby="contact-title" className="scroll-mt-6 border-t border-border bg-muted" id="contacto">
-            <div className="mx-auto w-full max-w-[1440px] px-5 py-16 sm:px-8 sm:py-20 lg:px-8 lg:py-24">
-             <div className="max-w-2xl">
-               <p className="text-xs font-semibold tracking-[0.24em] text-muted-foreground">HABLEMOS</p>
-               <h2 className="mt-5 text-balance text-[clamp(2.25rem,4.5vw,4.25rem)] font-semibold leading-[1.04] tracking-[-0.045em]" id="contact-title">
-                 ¿Buscás una propiedad?
-               </h2>
-                <p className="mt-5 text-lg leading-8 text-foreground/70 sm:text-xl">
-                  {organization.isDemo
-                    ? "Los datos de contacto se incorporan con información confirmada."
-                    : "Estamos para ayudarte a encontrarla."}
-                </p>
+               <div className="md:pt-3">
+                 {benefits.map(({ title, description }, index) => (
+                   <article className={`py-7 ${index > 0 ? "border-t border-border" : ""}`} key={title}>
+                     <h3 className="text-xl font-semibold tracking-[-0.025em]">{title}</h3>
+                     <p className="mt-3 max-w-sm text-sm leading-6 text-muted-foreground">{description}</p>
+                   </article>
+                 ))}
+               </div>
              </div>
+           </section>
+
+           <div className="mx-auto w-full max-w-[1440px] px-5 sm:px-8 lg:px-8" aria-hidden="true">
+             <div className="border-t border-border/70" />
+           </div>
+
+           <section aria-labelledby="contact-title" className="scroll-mt-6" id="contacto">
+              <div className="mx-auto w-full max-w-[1440px] px-5 pb-16 pt-10 sm:px-8 sm:pb-20 sm:pt-14 lg:px-8 lg:pb-24 lg:pt-20">
+               <div className="max-w-2xl">
+                 <p className="text-xs font-semibold tracking-[0.24em] text-muted-foreground">HABLEMOS</p>
+                 <h2 className="mt-5 text-balance text-[clamp(2.25rem,4.5vw,4.25rem)] font-semibold leading-[1.04] tracking-[-0.045em]" id="contact-title">
+                   ¿Buscás una propiedad?
+                 </h2>
+                  <p className="mt-5 text-lg leading-8 text-foreground/70 sm:text-xl">
+                    {organization.isDemo
+                      ? "Los datos de contacto se incorporan con información confirmada."
+                      : "Estamos para ayudarte a encontrarla."}
+                  </p>
+               </div>
 
               {organization.contactAddress || organization.contactPhone || organization.contactEmail ? (
               <div className="mt-14 grid border-y border-border md:grid-cols-3">
@@ -310,8 +315,9 @@ export default async function PublicHomePage({ params }: PublicHomePageProps) {
                  <ArrowRight aria-hidden="true" className="size-4 transition-transform duration-200 group-hover:translate-x-1" />
                </a>
              ) : null}
-           </div>
-         </section>
+             </div>
+           </section>
+         </div>
        </main>
 
        <PublicFooter
