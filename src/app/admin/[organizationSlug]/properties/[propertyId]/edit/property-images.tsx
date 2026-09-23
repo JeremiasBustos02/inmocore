@@ -15,13 +15,11 @@ import {
 } from "@/components/ui/empty";
 import {
   MAX_PROPERTY_IMAGES,
-  MAX_PROPERTY_IMAGE_SIZE,
   PROPERTY_IMAGES_BUCKET,
 } from "@/lib/property-images";
 import {
   IMAGE_CACHE_CONTROL,
   MAX_IMAGE_INPUT_SIZE,
-  MAX_IMAGE_PIXELS,
   PROPERTY_IMAGE_PRESET,
   getOptimizedImageExtension,
   optimizeImageBatch,
@@ -274,7 +272,7 @@ export function PropertyImages({
       <div className="flex flex-col gap-1">
         <h2 className="text-xl font-semibold">Imágenes</h2>
         <p className="text-sm text-muted-foreground">
-          Hasta {MAX_PROPERTY_IMAGES} imágenes. Original JPEG, PNG o WebP de hasta {MAX_IMAGE_INPUT_SIZE / 1024 / 1024} MB y {MAX_IMAGE_PIXELS / 1_000_000} MP; salida optimizada WebP o JPEG hasta {MAX_PROPERTY_IMAGE_SIZE / 1024 / 1024} MB. La primera imagen es la portada.
+          Hasta {MAX_PROPERTY_IMAGES} imágenes JPEG, PNG o WebP de {MAX_IMAGE_INPUT_SIZE / 1024 / 1024} MB por archivo. La primera imagen es la portada.
         </p>
       </div>
 
@@ -282,7 +280,7 @@ export function PropertyImages({
         <AdminFilePicker
           accept="image/jpeg,image/png,image/webp"
           files={selectedImages.map((image) => image.original)}
-          hint={`JPEG, PNG o WebP · original hasta ${MAX_IMAGE_INPUT_SIZE / 1024 / 1024} MB y ${MAX_IMAGE_PIXELS / 1_000_000} MP · salida WebP o JPEG hasta ${MAX_PROPERTY_IMAGE_SIZE / 1024 / 1024} MB · hasta ${MAX_PROPERTY_IMAGES}`}
+          hint={`JPEG, PNG o WebP · máximo ${MAX_IMAGE_INPUT_SIZE / 1024 / 1024} MB por archivo · hasta ${MAX_PROPERTY_IMAGES} imágenes`}
           inputRef={inputRef}
           label="Seleccionar imágenes"
           multiple

@@ -4,7 +4,22 @@ export const IMAGE_PROCESSING_CONCURRENCY = 2;
 // UUID object paths are immutable; callers use a one-year Storage cache lifetime.
 export const IMAGE_CACHE_CONTROL = "31536000";
 // Inspectable in development console to distinguish a current bundle from a cached one.
-export const IMAGE_PIPELINE_VERSION = "ios-encoder-fallback-2";
+export const IMAGE_PIPELINE_VERSION = "ios-html-image-decode-3";
+
+type ImageErrorCode =
+  | "IMG_DECODE_FAILED"
+  | "IMG_CANVAS_FAILED"
+  | "IMG_WEBP_FAILED"
+  | "IMG_JPEG_FAILED"
+  | "IMG_PNG_FAILED"
+  | "IMG_OUTPUT_INVALID"
+  | "IMG_SIZE_LIMIT";
+
+class ImagePipelineError extends Error {
+  constructor(readonly code: ImageErrorCode, cause?: unknown) {
+    super(`No pudimos procesar esta imagen. Código: ${code}`, { cause });
+  }
+}
 
 export type ImagePreset = {
   maxDimension: number;
@@ -62,6 +77,7 @@ type OptimizationOptions = {
   webpEncodingSupported?: boolean;
   // Fixture hook: replaces only WebP canvas encoding, leaving the real JPEG/PNG fallback intact.
   webpEncoder?: (canvas: HTMLCanvasElement, quality: number) => Promise<Blob | null>;
+  htmlImageOnly?: boolean;
 };
 
 export type ImageBatchResult =
@@ -94,28 +110,32 @@ export async function optimizeImage(
   options: OptimizationOptions = {},
 ): Promise<ImageOptimizationResult> {
   const validationError = validateImageInput(file);
-  if (validationError) throw new Error(validationError);
+  if (validationError) {
+    if (file.size > MAX_IMAGE_INPUT_SIZE) throw new ImagePipelineError("IMG_SIZE_LIMIT");
+    throw new Error(validationError);
+  }
 
-  const headerDimensions = await readImageDimensions(file);
+  let headerDimensions: Awaited<ReturnType<typeof readImageDimensions>>;
+  try {
+    headerDimensions = await readImageDimensions(file);
+  } catch (error) {
+    throw new ImagePipelineError("IMG_DECODE_FAILED", error);
+  }
   if (!headerDimensions) {
-    throw new Error("No pudimos leer las dimensiones. El archivo puede estar dañado.");
+    throw new ImagePipelineError("IMG_DECODE_FAILED");
   }
   if (headerDimensions.width * headerDimensions.height > MAX_IMAGE_PIXELS) {
-    throw new Error("La imagen supera el máximo de 24 megapíxeles.");
+    throw new ImagePipelineError("IMG_SIZE_LIMIT");
   }
 
-  let bitmap: ImageBitmap;
-  try {
-    bitmap = await createImageBitmap(file, { imageOrientation: "from-image" });
-  } catch {
-    throw new Error("No pudimos decodificar esta imagen. Probá con otro archivo.");
-  }
+  const decoded = options.htmlImageOnly ? await decodeHtmlImage(file) : await decodeImage(file);
 
   try {
-    const inputWidth = bitmap.width;
-    const inputHeight = bitmap.height;
-    if (!inputWidth || !inputHeight || inputWidth * inputHeight > MAX_IMAGE_PIXELS) {
-      throw new Error("La imagen supera el máximo de 24 megapíxeles o tiene dimensiones inválidas.");
+    const inputWidth = decoded.width;
+    const inputHeight = decoded.height;
+    if (!inputWidth || !inputHeight) throw new ImagePipelineError("IMG_DECODE_FAILED");
+    if (inputWidth * inputHeight > MAX_IMAGE_PIXELS) {
+      throw new ImagePipelineError("IMG_SIZE_LIMIT");
     }
 
     const ratio = Math.min(1, preset.maxDimension / Math.max(inputWidth, inputHeight));
@@ -146,6 +166,7 @@ export async function optimizeImage(
       finalType: null,
     };
     let attempts = 0;
+    let sizeLimitReached = false;
 
     try {
       for (const format of formats) {
@@ -157,15 +178,18 @@ export async function optimizeImage(
             const quality = Number((preset.initialQuality * qualityScale).toFixed(3));
             try {
               if (format === "image/webp") trace.webpAttempted = true;
-              const blob = await rasterize(bitmap, dimension.width, dimension.height, format, quality, options.webpEncoder);
+              const blob = await rasterize(decoded.source, dimension.width, dimension.height, format, quality, options.webpEncoder);
               if (format === "image/webp") trace.webpBlobType = blob?.type ?? null;
-              if (!blob || blob.type !== format) throw new Error("No pudimos procesar esta imagen.");
-              if (blob.size > preset.hardLimitBytes) continue;
+              if (!blob || blob.type !== format) throw new ImagePipelineError(encodeErrorCode(format));
+              if (blob.size > preset.hardLimitBytes) {
+                sizeLimitReached = true;
+                continue;
+              }
               const valid = await isValidOutput(blob, format, dimension.width, dimension.height);
               if (format === "image/webp") trace.webpValid = valid;
               if (!valid) {
                 if (format === "image/webp") break;
-                throw new Error("No pudimos procesar esta imagen.");
+                throw new ImagePipelineError("IMG_OUTPUT_INVALID");
               }
 
               const optimizedFile = new File([blob], `optimized.${extensionForMimeType(format)}`, {
@@ -184,23 +208,30 @@ export async function optimizeImage(
                 quality,
                 attempts,
               } satisfies ImageOptimizationResult;
-            } catch {
+            } catch (error) {
               // Capability can pass while a real iPhone image fails at encode, validation or file creation.
               if (format === "image/webp") break;
-              throw new Error("No pudimos procesar esta imagen.");
+              if (error instanceof ImagePipelineError) throw error;
+              throw new ImagePipelineError(encodeErrorCode(format), error);
             }
           }
         }
       }
 
-      throw new Error("No pudimos optimizar esta imagen dentro del límite permitido.");
+      throw new ImagePipelineError(sizeLimitReached ? "IMG_SIZE_LIMIT" : "IMG_OUTPUT_INVALID");
     } finally {
       if (process.env.NODE_ENV === "development") {
-        console.info("[image-optimization]", { version: IMAGE_PIPELINE_VERSION, ...trace });
+        console.info("[image-optimization]", { version: IMAGE_PIPELINE_VERSION, decoder: decoded.method, ...trace });
       }
     }
+  } catch (error) {
+    // Some browsers decode a bitmap successfully but cannot draw it to Canvas.
+    if (error instanceof ImagePipelineError && error.code === "IMG_CANVAS_FAILED" && decoded.method === "bitmap") {
+      return await optimizeImage(file, preset, { ...options, htmlImageOnly: true });
+    }
+    throw error;
   } finally {
-    bitmap.close();
+    decoded.release();
   }
 }
 
@@ -268,6 +299,70 @@ export function getOptimizedImageExtension(mimeType: string) {
   return mimeType === "image/webp" ? "webp" : mimeType === "image/jpeg" ? "jpg" : mimeType === "image/png" ? "png" : null;
 }
 
+function encodeErrorCode(format: string): ImageErrorCode {
+  return format === "image/webp" ? "IMG_WEBP_FAILED" : format === "image/png" ? "IMG_PNG_FAILED" : "IMG_JPEG_FAILED";
+}
+
+async function decodeImage(file: Blob) {
+  try {
+    // The browser applies EXIF orientation here. No manual rotation is performed later.
+    const bitmap = await createImageBitmap(file, { imageOrientation: "from-image" });
+    if (!bitmap.width || !bitmap.height) {
+      bitmap.close();
+      throw new Error("Invalid bitmap dimensions");
+    }
+    return {
+      source: bitmap as CanvasImageSource,
+      width: bitmap.width,
+      height: bitmap.height,
+      method: "bitmap" as const,
+      release: () => bitmap.close(),
+    };
+  } catch {
+    // HTMLImageElement also applies the browser's EXIF orientation at decode/draw time.
+    // Do not transform the canvas again or portrait JPEGs could be rotated twice.
+    return decodeHtmlImage(file);
+  }
+}
+
+async function decodeHtmlImage(file: Blob) {
+  let url: string;
+  try {
+    url = URL.createObjectURL(file);
+  } catch (error) {
+    throw new ImagePipelineError("IMG_DECODE_FAILED", error);
+  }
+  let image: HTMLImageElement | null = null;
+  try {
+    image = new Image();
+    const element = image;
+    await new Promise<void>((resolve, reject) => {
+      element.onload = () => resolve();
+      element.onerror = () => reject(new Error("Image load failed"));
+      element.src = url;
+    });
+    if (!element.naturalWidth || !element.naturalHeight) throw new Error("Invalid image dimensions");
+    return {
+      source: element as CanvasImageSource,
+      width: element.naturalWidth,
+      height: element.naturalHeight,
+      method: "html-image" as const,
+      release: () => {
+        element.onload = null;
+        element.onerror = null;
+        URL.revokeObjectURL(url);
+      },
+    };
+  } catch (error) {
+    if (image) {
+      image.onload = null;
+      image.onerror = null;
+    }
+    URL.revokeObjectURL(url);
+    throw new ImagePipelineError("IMG_DECODE_FAILED", error);
+  }
+}
+
 export async function canEncodeWebp() {
   webpEncodingSupport ??= detectWebpEncodingSupport();
   return webpEncodingSupport;
@@ -286,47 +381,66 @@ async function detectWebpEncodingSupport() {
 }
 
 async function rasterize(
-  bitmap: ImageBitmap,
+  source: CanvasImageSource,
   width: number,
   height: number,
   format: string,
   quality: number,
   webpEncoder?: (canvas: HTMLCanvasElement, quality: number) => Promise<Blob | null>,
 ) {
-  const canvas = document.createElement("canvas");
-  canvas.width = width;
-  canvas.height = height;
+  if (!Number.isSafeInteger(width) || !Number.isSafeInteger(height) || width < 1 || height < 1) {
+    throw new ImagePipelineError("IMG_CANVAS_FAILED");
+  }
+  let canvas: HTMLCanvasElement;
   try {
-    const context = canvas.getContext("2d", { alpha: true });
-    if (!context) throw new Error("No pudimos procesar esta imagen.");
-    context.drawImage(bitmap, 0, 0, width, height);
-    const blob = format === "image/webp" && webpEncoder
-      ? await webpEncoder(canvas, quality)
-      : await canvasBlob(canvas, format, format === "image/png" ? undefined : quality);
-    return blob;
+    canvas = document.createElement("canvas");
+  } catch (error) {
+    throw new ImagePipelineError("IMG_CANVAS_FAILED", error);
+  }
+  try {
+    try {
+      canvas.width = width;
+      canvas.height = height;
+      const context = canvas.getContext("2d", { alpha: true });
+      if (!context) throw new Error("Canvas context unavailable");
+      context.drawImage(source, 0, 0, width, height);
+    } catch (error) {
+      throw new ImagePipelineError("IMG_CANVAS_FAILED", error);
+    }
+    try {
+      return format === "image/webp" && webpEncoder
+        ? await webpEncoder(canvas, quality)
+        : await canvasBlob(canvas, format, format === "image/png" ? undefined : quality);
+    } catch (error) {
+      throw new ImagePipelineError(encodeErrorCode(format), error);
+    }
   } finally {
-    canvas.width = 0;
-    canvas.height = 0;
+    try {
+      canvas.width = 0;
+      canvas.height = 0;
+    } catch {
+      // Cleanup must not replace the error from the failed canvas/encoder stage.
+    }
   }
 }
 
 async function isValidOutput(blob: Blob, format: string, expectedWidth?: number, expectedHeight?: number) {
-  if (blob.type !== format || blob.size < 16) return false;
-  const bytes = new Uint8Array(await blob.arrayBuffer());
-  const validContainer = format === "image/webp"
-    ? isValidWebpContainer(bytes)
-    : format === "image/jpeg"
-      ? isValidJpegWithoutMetadata(bytes)
-      : format === "image/png"
-        ? isValidPngWithoutMetadata(bytes)
-        : false;
-  if (!validContainer) return false;
   try {
-    const decoded = await createImageBitmap(blob);
+    if (blob.type !== format || blob.size < 16) return false;
+    const bytes = new Uint8Array(await blob.arrayBuffer());
+    const validContainer = format === "image/webp"
+      ? isValidWebpContainer(bytes)
+      : format === "image/jpeg"
+        ? isValidJpegWithoutMetadata(bytes)
+        : format === "image/png"
+          ? isValidPngWithoutMetadata(bytes)
+          : false;
+    if (!validContainer) return false;
+    const decoded = await decodeImage(blob);
     const valid = decoded.width > 0 && decoded.height > 0 &&
       (expectedWidth === undefined || decoded.width === expectedWidth) &&
       (expectedHeight === undefined || decoded.height === expectedHeight);
-    decoded.close();
+    decoded.release();
     return valid;
   } catch {
     return false;

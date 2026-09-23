@@ -58,6 +58,37 @@ export async function runImageOptimizationCheck() {
   assert(smallResult.outputWidth === 160 && smallResult.outputHeight === 90, "La imagen pequeña fue ampliada.");
   assert(["image/webp", "image/jpeg"].includes(smallResult.file.type) && smallResult.outputBytes > 0, "La imagen pequeña no fue re-encodeada.");
 
+  const originalBitmapDecoder = globalThis.createImageBitmap;
+  const originalCreateObjectUrl = URL.createObjectURL;
+  const originalRevokeObjectUrl = URL.revokeObjectURL;
+  const activeObjectUrls = new Set<string>();
+  let htmlJpegResult: Awaited<ReturnType<typeof optimizeImage>>;
+  let htmlPngResult: Awaited<ReturnType<typeof optimizeImage>>;
+  try {
+    // Simulate an iPhone where createImageBitmap fails for BOTH input and output.
+    globalThis.createImageBitmap = async () => { throw new Error("ImageBitmap unavailable"); };
+    URL.createObjectURL = (blob) => {
+      const url = originalCreateObjectUrl.call(URL, blob);
+      activeObjectUrls.add(url);
+      return url;
+    };
+    URL.revokeObjectURL = (url) => {
+      activeObjectUrls.delete(url);
+      originalRevokeObjectUrl.call(URL, url);
+    };
+    htmlJpegResult = await optimizeImage(orientationFixture, PROPERTY_IMAGE_PRESET, { webpEncodingSupported: false });
+    htmlPngResult = await optimizeImage(smallPng, PROPERTY_IMAGE_PRESET, { webpEncodingSupported: false });
+  } finally {
+    globalThis.createImageBitmap = originalBitmapDecoder;
+    URL.createObjectURL = originalCreateObjectUrl;
+    URL.revokeObjectURL = originalRevokeObjectUrl;
+  }
+  assert(activeObjectUrls.size === 0, "El decoder HTML no liberó todas las object URLs.");
+  assert(htmlJpegResult.file.type === "image/jpeg" && htmlJpegResult.outputWidth === 300 && htmlJpegResult.outputHeight === 600, "El decoder HTML no orientó el JPEG.");
+  assert(htmlPngResult.file.type === "image/jpeg" && htmlPngResult.outputWidth === 160 && htmlPngResult.outputHeight === 90, "El decoder HTML no procesó la captura PNG.");
+  const htmlJpegMetadata = await readJpegMetadata(htmlJpegResult.file);
+  assert(htmlJpegMetadata.orientation === null && htmlJpegMetadata.gpsTags.length === 0, "El decoder HTML conservó EXIF/GPS.");
+
   const corruptFile = new File([new Uint8Array([0xff, 0xd8, 0xff, 0xc0, 0, 17, 8, 0, 20, 0, 20, 3, 1, 0x11, 0, 2, 0x11, 0, 3, 0x11, 0])], "fake.jpg", { type: "image/jpeg" });
   let corruptRejected = false;
   try {
@@ -153,6 +184,7 @@ export async function runImageOptimizationCheck() {
   const webpChunks = orientationResult.file.type === "image/webp" ? await readWebpChunks(orientationResult.file) : [];
   return {
     pipelineVersion: IMAGE_PIPELINE_VERSION,
+    htmlImageDecoder: { jpeg: htmlJpegResult.file.type, screenshotPng: htmlPngResult.file.type, objectUrlsReleased: activeObjectUrls.size === 0 },
     forcedWebpFailures: forcedFailures,
     orientationExifGps: {
       originalBytes: orientationFixture.size,
