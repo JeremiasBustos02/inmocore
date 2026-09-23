@@ -1,4 +1,4 @@
-import { and, desc, eq, ilike, or, type SQL } from "drizzle-orm";
+import { and, asc, desc, eq, ilike, or, type SQL } from "drizzle-orm";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { archiveProperty } from "./actions";
@@ -31,9 +31,12 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { db } from "@/db";
-import { properties } from "@/db/schema";
+import { properties, propertyImages } from "@/db/schema";
 import { requireAuthenticatedUserId } from "@/lib/auth";
 import { requireOrganizationMembership } from "@/lib/organizations";
+import { PROPERTY_IMAGES_BUCKET } from "@/lib/property-images";
+import { createClient } from "@/lib/supabase/server";
+import { PropertyAdminMobileRow } from "./property-admin-mobile-row";
 
 type PropertiesPageProps = {
   params: Promise<{ organizationSlug: string }>;
@@ -87,6 +90,8 @@ export default async function PropertiesPage({
       id: properties.id,
        propertyCode: properties.propertyCode,
       title: properties.title,
+      city: properties.city,
+      province: properties.province,
       operationType: properties.operationType,
       propertyType: properties.propertyType,
       priceAmount: properties.priceAmount,
@@ -98,6 +103,25 @@ export default async function PropertiesPage({
     .from(properties)
     .where(and(...conditions))
     .orderBy(desc(properties.createdAt));
+
+  const thumbnails = propertyList.length > 0
+    ? await db
+        .select({ propertyId: propertyImages.propertyId, storagePath: propertyImages.storagePath })
+        .from(propertyImages)
+        .innerJoin(properties, eq(properties.id, propertyImages.propertyId))
+        .where(and(
+          eq(properties.organizationId, membership.id),
+          or(...propertyList.map(({ id }) => eq(propertyImages.propertyId, id)))!,
+        ))
+        .orderBy(asc(propertyImages.sortOrder), asc(propertyImages.createdAt))
+    : [];
+  const firstThumbnailByProperty = new Map<string, string>();
+  for (const image of thumbnails) {
+    if (!firstThumbnailByProperty.has(image.propertyId)) {
+      firstThumbnailByProperty.set(image.propertyId, image.storagePath);
+    }
+  }
+  const supabase = await createClient();
 
   const propertiesHref = `/admin/${encodeURIComponent(organizationSlug)}/properties`;
 
@@ -141,7 +165,7 @@ export default async function PropertiesPage({
         </div>
       </form>
 
-      <section className="overflow-x-auto rounded-xl border bg-card">
+      <section className="min-w-0 rounded-xl border bg-card">
         {propertyList.length === 0 ? (
           <Empty className="min-h-48">
             <EmptyHeader>
@@ -152,6 +176,34 @@ export default async function PropertiesPage({
             </EmptyHeader>
           </Empty>
         ) : (
+          <>
+          <div className="md:hidden">
+            <ul className="divide-y">
+              {propertyList.map((property) => {
+                const storagePath = firstThumbnailByProperty.get(property.id);
+                const imageUrl = storagePath
+                  ? supabase.storage.from(PROPERTY_IMAGES_BUCKET).getPublicUrl(storagePath).data.publicUrl
+                  : null;
+                return (
+                  <li key={property.id}>
+                    <PropertyAdminMobileRow
+                      archiveAction={archiveProperty.bind(null, organizationSlug, property.id)}
+                      editHref={`${propertiesHref}/${property.id}/edit`}
+                      imageUrl={imageUrl}
+                      operation={operationTypeLabels[property.operationType]}
+                      price={formatPrice(property.priceAmount, property.currency)}
+                      propertyCode={property.propertyCode}
+                      status={propertyStatusLabels[property.status]}
+                      title={property.title}
+                      location={property.city === property.province ? property.city : `${property.city}, ${property.province}`}
+                      archived={property.status === "archived"}
+                    />
+                  </li>
+                );
+              })}
+            </ul>
+          </div>
+          <div className="hidden md:block">
           <Table>
             <TableHeader>
               <TableRow>
@@ -199,6 +251,8 @@ export default async function PropertiesPage({
               })}
             </TableBody>
           </Table>
+          </div>
+          </>
         )}
       </section>
     </main>
