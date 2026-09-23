@@ -4,7 +4,7 @@ export const IMAGE_PROCESSING_CONCURRENCY = 2;
 // UUID object paths are immutable; callers use a one-year Storage cache lifetime.
 export const IMAGE_CACHE_CONTROL = "31536000";
 // Inspectable in development console to distinguish a current bundle from a cached one.
-export const IMAGE_PIPELINE_VERSION = "ios-output-diagnostics-4";
+export const IMAGE_PIPELINE_VERSION = "ios-jpeg-sanitize-5";
 
 type ImageErrorCode =
   | "IMG_DECODE_FAILED"
@@ -183,9 +183,11 @@ export async function optimizeImage(
             const quality = Number((preset.initialQuality * qualityScale).toFixed(3));
             try {
               if (format === "image/webp") trace.webpAttempted = true;
-              const blob = await rasterize(decoded.source, dimension.width, dimension.height, format, quality, options.webpEncoder);
-              if (format === "image/webp") trace.webpBlobType = blob?.type ?? null;
-              if (!blob) throw new ImagePipelineError(encodeErrorCode(format));
+              const encoded = await rasterize(decoded.source, dimension.width, dimension.height, format, quality, options.webpEncoder);
+              if (format === "image/webp") trace.webpBlobType = encoded?.type ?? null;
+              if (!encoded) throw new ImagePipelineError(encodeErrorCode(format));
+              // Only the new Canvas JPEG is sanitized; never read metadata from the source file.
+              const blob = format === "image/jpeg" ? await sanitizeCanvasJpeg(encoded) : encoded;
               if (blob.size > preset.hardLimitBytes) {
                 sizeLimitReached = true;
                 continue;
@@ -503,6 +505,87 @@ function detectImageFormat(bytes: Uint8Array) {
   return null;
 }
 
+export async function sanitizeCanvasJpeg(blob: Blob): Promise<Blob> {
+  if (blob.type && blob.type !== "image/jpeg") throw new ImagePipelineError("IMG_OUTPUT_MIME_MISMATCH");
+  const bytes = new Uint8Array(await blob.arrayBuffer());
+  if (detectImageFormat(bytes) !== "image/jpeg") throw new ImagePipelineError("IMG_OUTPUT_SIGNATURE_INVALID");
+
+  const parts: Uint8Array[] = [bytes.subarray(0, 2)];
+  let offset = 2;
+  let removed = false;
+  let scanFound = false;
+  let endFound = false;
+  while (offset < bytes.length) {
+    if (bytes[offset] !== 0xff) throw new ImagePipelineError("IMG_OUTPUT_SIGNATURE_INVALID");
+    let markerPosition = offset + 1;
+    while (bytes[markerPosition] === 0xff) markerPosition += 1;
+    const marker = bytes[markerPosition];
+    if (marker === undefined || marker === 0x00 || marker === 0xd8) {
+      throw new ImagePipelineError("IMG_OUTPUT_SIGNATURE_INVALID");
+    }
+    if (marker === 0xd9) {
+      parts.push(bytes.subarray(offset, markerPosition + 1));
+      endFound = true;
+      break;
+    }
+    if (marker >= 0xd0 && marker <= 0xd7 || marker === 0x01) {
+      parts.push(bytes.subarray(offset, markerPosition + 1));
+      offset = markerPosition + 1;
+      continue;
+    }
+    const lengthOffset = markerPosition + 1;
+    if (lengthOffset + 2 > bytes.length) throw new ImagePipelineError("IMG_OUTPUT_SIGNATURE_INVALID");
+    const size = (bytes[lengthOffset] << 8) | bytes[lengthOffset + 1];
+    const end = lengthOffset + size;
+    if (size < 2 || end > bytes.length) throw new ImagePipelineError("IMG_OUTPUT_SIGNATURE_INVALID");
+    if (marker === 0xda) {
+      const scanEnd = findJpegScanEnd(bytes, end);
+      parts.push(bytes.subarray(offset, scanEnd)); // Copy SOS and entropy-coded data unchanged.
+      scanFound = true;
+      offset = scanEnd;
+      continue;
+    }
+    const metadataKind = marker === 0xe1 ? jpegApp1MetadataKind(bytes, lengthOffset + 2) : null;
+    if (metadataKind) {
+      removed = true;
+      if (process.env.NODE_ENV === "development") {
+        console.info("[jpeg-sanitize]", { segment: "APP1", identifier: metadataKind, segmentBytes: end - offset });
+      }
+    } else {
+      parts.push(bytes.subarray(offset, end)); // Retain APP0/JFIF, APP2/ICC, tables and other markers.
+    }
+    offset = end;
+  }
+  if (!scanFound || !endFound) throw new ImagePipelineError("IMG_OUTPUT_SIGNATURE_INVALID");
+  return removed ? new Blob(parts.map((part) => new Uint8Array(part)), { type: "image/jpeg" }) : blob;
+}
+
+function findJpegScanEnd(bytes: Uint8Array, start: number) {
+  for (let offset = start; offset + 1 < bytes.length;) {
+    if (bytes[offset] !== 0xff) {
+      offset += 1;
+      continue;
+    }
+    let markerPosition = offset + 1;
+    while (bytes[markerPosition] === 0xff) markerPosition += 1;
+    const marker = bytes[markerPosition];
+    if (marker === 0x00 || marker >= 0xd0 && marker <= 0xd7) {
+      offset = markerPosition + 1; // Stuffed 0xff or restart marker: still scan data.
+      continue;
+    }
+    if (marker !== undefined) return offset;
+    break;
+  }
+  throw new ImagePipelineError("IMG_OUTPUT_SIGNATURE_INVALID");
+}
+
+function jpegApp1MetadataKind(bytes: Uint8Array, payload: number) {
+  if (ascii(bytes, payload, 6) === "Exif\0\0") return "EXIF";
+  if (ascii(bytes, payload, 28) === "http://ns.adobe.com/xap/1.0/") return "XMP";
+  if (ascii(bytes, payload, 34) === "http://ns.adobe.com/xmp/extension/") return "XMP_EXTENDED";
+  return null;
+}
+
 function inspectWebp(bytes: Uint8Array): ImageErrorCode | null {
   if (bytes.length < 20) return "IMG_OUTPUT_SIGNATURE_INVALID";
   const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
@@ -520,25 +603,34 @@ function inspectWebp(bytes: Uint8Array): ImageErrorCode | null {
 
 function inspectJpeg(bytes: Uint8Array): ImageErrorCode | null {
   let offset = 2;
-  while (offset + 4 <= bytes.length) {
+  let scanFound = false;
+  while (offset + 1 < bytes.length) {
     if (bytes[offset] !== 0xff) return "IMG_OUTPUT_SIGNATURE_INVALID";
-    const marker = bytes[offset + 1];
-    if (marker === 0xda) return offset + 2 < bytes.length ? null : "IMG_OUTPUT_SIGNATURE_INVALID";
-    if (marker === 0xd9) return null;
-    offset += 2;
-    if (marker >= 0xd0 && marker <= 0xd7) continue;
-    if (offset + 2 > bytes.length) return "IMG_OUTPUT_SIGNATURE_INVALID";
-    const size = (bytes[offset] << 8) | bytes[offset + 1];
-    if (size < 2 || offset + size > bytes.length) return "IMG_OUTPUT_SIGNATURE_INVALID";
-    if (marker === 0xe1) {
-      const payload = offset + 2;
-      if (ascii(bytes, payload, 6) === "Exif\0\0" ||
-        ascii(bytes, payload, 28) === "http://ns.adobe.com/xap/1.0/" ||
-        ascii(bytes, payload, 34) === "http://ns.adobe.com/xmp/extension/") {
-        return "IMG_OUTPUT_METADATA_FOUND";
-      }
+    let markerPosition = offset + 1;
+    while (bytes[markerPosition] === 0xff) markerPosition += 1;
+    const marker = bytes[markerPosition];
+    if (marker === undefined || marker === 0x00 || marker === 0xd8) return "IMG_OUTPUT_SIGNATURE_INVALID";
+    if (marker === 0xd9) return scanFound ? null : "IMG_OUTPUT_SIGNATURE_INVALID";
+    if (marker >= 0xd0 && marker <= 0xd7 || marker === 0x01) {
+      offset = markerPosition + 1;
+      continue;
     }
-    offset += size;
+    const lengthOffset = markerPosition + 1;
+    if (lengthOffset + 2 > bytes.length) return "IMG_OUTPUT_SIGNATURE_INVALID";
+    const size = (bytes[lengthOffset] << 8) | bytes[lengthOffset + 1];
+    const end = lengthOffset + size;
+    if (size < 2 || end > bytes.length) return "IMG_OUTPUT_SIGNATURE_INVALID";
+    if (marker === 0xe1 && jpegApp1MetadataKind(bytes, lengthOffset + 2)) return "IMG_OUTPUT_METADATA_FOUND";
+    if (marker === 0xda) {
+      scanFound = true;
+      try {
+        offset = findJpegScanEnd(bytes, end);
+      } catch {
+        return "IMG_OUTPUT_SIGNATURE_INVALID";
+      }
+    } else {
+      offset = end;
+    }
   }
   return "IMG_OUTPUT_SIGNATURE_INVALID";
 }

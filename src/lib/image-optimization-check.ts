@@ -6,6 +6,7 @@ import {
   optimizeImage,
   optimizeImageBatch,
   PROPERTY_IMAGE_PRESET,
+  sanitizeCanvasJpeg,
   validateOptimizedOutput,
   validateImageInput,
   type ImagePreset,
@@ -145,6 +146,26 @@ export async function runImageOptimizationCheck() {
   assert(await validateOptimizedOutput(new Blob(["invalid jpeg"], { type: "image/jpeg" }), "image/jpeg") === "IMG_OUTPUT_SIGNATURE_INVALID", "Firma inválida no fue rechazada.");
   assert(await validateOptimizedOutput(fallbackProperty.file, "image/jpeg", 600, 300) === "IMG_OUTPUT_DIMENSIONS_INVALID", "Dimensiones invertidas no fueron distinguidas.");
 
+  // Synthetic Canvas JPEG with EXIF/GPS and XMP; preserve the unrelated JFIF/ICC segments.
+  const gpsJpeg = new Uint8Array(await (await createJpegFixture({ orientation: 1, gps: true })).arrayBuffer());
+  const icc = new TextEncoder().encode("ICC_PROFILE\0\x01\x01synthetic-fixture");
+  const withIcc = prependJpegSegment(gpsJpeg, 0xe2, icc);
+  const withIccAndJfif = prependJpegSegment(withIcc, 0xe0, jfif);
+  const withAllSegments = prependJpegSegment(withIccAndJfif, 0xe1, new TextEncoder().encode("Unrelated APP1 data"));
+  const generatedJpeg = new Blob([new Uint8Array(withAllSegments)], { type: "image/jpeg" });
+  assert(await validateOptimizedOutput(generatedJpeg, "image/jpeg") === "IMG_OUTPUT_METADATA_FOUND", "La fixture con GPS/XMP debía fallar antes de sanitizar.");
+  const sanitized = await sanitizeCanvasJpeg(generatedJpeg);
+  const sanitizedBytes = new Uint8Array(await sanitized.arrayBuffer());
+  assert(sanitized.size < generatedJpeg.size && sanitized.type === "image/jpeg", "No se removieron segmentos del JPEG generado.");
+  assert(hasJpegSegment(sanitizedBytes, 0xe0, "JFIF\0"), "APP0/JFIF fue eliminado.");
+  assert(hasJpegSegment(sanitizedBytes, 0xe2, "ICC_PROFILE\0\x01\x01synthetic-fixture"), "APP2/ICC fue eliminado o modificado.");
+  assert(hasJpegSegment(sanitizedBytes, 0xe1, "Unrelated APP1 data"), "APP1 no relacionado fue eliminado.");
+  assert(!hasJpegSegment(sanitizedBytes, 0xe1, "Exif\0\0") && !hasJpegSegment(sanitizedBytes, 0xe1, "http://ns.adobe.com/xap/1.0/"), "EXIF/XMP permanecen en el JPEG sanitizado.");
+  assert(!containsAscii(sanitizedBytes, "http://ns.adobe.com/xap/1.0/"), "Quedó XMP en el JPEG sanitizado.");
+  const sanitizedMetadata = await readJpegMetadata(sanitized);
+  assert(sanitizedMetadata.orientation === null && sanitizedMetadata.gpsTags.length === 0, "Quedó EXIF/GPS en el JPEG sanitizado.");
+  assert(await validateOptimizedOutput(sanitized, "image/jpeg", 600, 300) === null, "JPEG sanitizado inválido o con dimensiones distintas.");
+
   const failedWebpCases = [
     { name: "A: null", encode: async () => null },
     { name: "B: PNG en vez de WebP", encode: async () => new Blob([await transparentPng.arrayBuffer()], { type: "image/png" }) },
@@ -202,6 +223,7 @@ export async function runImageOptimizationCheck() {
   return {
     pipelineVersion: IMAGE_PIPELINE_VERSION,
     jpegOutputVariants: { jfif: "PASS", noJfif: "PASS", otherAppSegments: "PASS", emptyMimeWithJpegBytes: "PASS", exifRejected: "PASS" },
+    jpegSanitizer: { app0Preserved: true, app2IccPreserved: true, unrelatedApp1Preserved: true, exifGpsXmpRemoved: true, dimensions: "600x300" },
     htmlImageDecoder: { jpeg: htmlJpegResult.file.type, screenshotPng: htmlPngResult.file.type, objectUrlsReleased: activeObjectUrls.size === 0 },
     forcedWebpFailures: forcedFailures,
     orientationExifGps: {
@@ -397,6 +419,17 @@ function prependJpegSegment(jpeg: Uint8Array, marker: number, payload: Uint8Arra
   output.set(segment, 2);
   output.set(jpeg.subarray(2), 2 + segment.length);
   return output;
+}
+
+function hasJpegSegment(jpeg: Uint8Array, marker: number, prefix: string) {
+  let offset = 2;
+  while (offset + 4 <= jpeg.length && jpeg[offset] === 0xff && jpeg[offset + 1] !== 0xda) {
+    const size = (jpeg[offset + 2] << 8) | jpeg[offset + 3];
+    if (size < 2 || offset + 2 + size > jpeg.length) throw new Error("JPEG fixture inválido.");
+    if (jpeg[offset + 1] === marker && size >= prefix.length + 2 && matchesAscii(jpeg, offset + 4, prefix)) return true;
+    offset += size + 2;
+  }
+  return false;
 }
 
 function removeJfifSegments(jpeg: Uint8Array) {
