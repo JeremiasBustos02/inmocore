@@ -4,13 +4,14 @@ import { db } from "@/db";
 import { properties, propertyImages } from "@/db/schema";
 import { requireAuthenticatedUserId } from "@/lib/auth";
 import { requireOrganizationMembership } from "@/lib/organizations";
-import { archiveProperty, updateProperty } from "../../actions";
+import { archiveProperty, permanentlyDeleteProperty, updateProperty } from "../../actions";
 import { geocodePropertyAddress } from "../../../geocoding-actions";
 import { PropertyForm } from "../../property-form";
 import { Button } from "@/components/ui/button";
 import { PROPERTY_IMAGES_BUCKET } from "@/lib/property-images";
 import { createClient } from "@/lib/supabase/server";
 import { PropertyImages } from "./property-images";
+import { DeletePropertyControl } from "../../delete-property-control";
 
 type EditPropertyPageProps = {
   params: Promise<{ organizationSlug: string; propertyId: string }>;
@@ -56,6 +57,7 @@ export default async function EditPropertyPage({ params, searchParams }: EditPro
   const propertiesHref = `/admin/${encodeURIComponent(organizationSlug)}/properties`;
   const updateAction = updateProperty.bind(null, organizationSlug, propertyId);
   const archiveAction = archiveProperty.bind(null, organizationSlug, propertyId);
+  const deleteAction = permanentlyDeleteProperty.bind(null, organizationSlug, propertyId);
 
   return (
     <main className="mx-auto flex min-h-screen w-full max-w-4xl flex-col gap-8 px-4 py-8 sm:px-6">
@@ -95,6 +97,13 @@ export default async function EditPropertyPage({ params, searchParams }: EditPro
           <form action={archiveAction}>
             <Button variant="destructive" type="submit">Archivar</Button>
           </form>
+          {membership.role === "owner" || membership.role === "admin" ? <p className="text-sm text-muted-foreground">Archivá la propiedad antes de eliminarla permanentemente.</p> : null}
+        </section>
+      ) : membership.role === "owner" || membership.role === "admin" ? (
+        <section className="flex flex-col gap-3 border-t border-destructive/30 pt-6">
+          <h2 className="font-medium">Zona de peligro</h2>
+          <p className="text-sm text-muted-foreground">La eliminación permanente no se puede deshacer.</p>
+          <DeletePropertyControl action={deleteAction} propertiesHref={propertiesHref} />
         </section>
       ) : null}
     </main>

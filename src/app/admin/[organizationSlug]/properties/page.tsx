@@ -38,6 +38,8 @@ import { requireOrganizationMembership } from "@/lib/organizations";
 type PropertiesPageProps = {
   params: Promise<{ organizationSlug: string }>;
   searchParams: Promise<{
+    deleted?: string;
+    storageCleanup?: string;
     operation?: string | string[];
     search?: string | string[];
     status?: string | string[];
@@ -116,6 +118,12 @@ export default async function PropertiesPage({
            <Link className={buttonVariants()} href={`${propertiesHref}/new`}>Nueva propiedad</Link>
          </div>
       </header>
+      {query.deleted === "1" ? (
+        <div className="rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-800 dark:text-emerald-300" role="status">
+          Propiedad eliminada permanentemente.
+          {query.storageCleanup === "pending" ? " No se pudieron eliminar todas las imágenes; el incidente quedó registrado para reconciliación." : " Las imágenes asociadas también se eliminaron de Storage."}
+        </div>
+      ) : null}
 
       <form className="grid gap-3 rounded-xl border bg-card p-4 md:grid-cols-[minmax(0,1fr)_180px_180px_auto]" method="get">
          <Input aria-label="Buscar por título o código" name="search" placeholder="Buscar por título o código" defaultValue={search} />

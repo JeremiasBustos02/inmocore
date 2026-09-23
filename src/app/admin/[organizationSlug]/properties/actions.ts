@@ -3,12 +3,14 @@
 import { and, eq } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { notFound, redirect } from "next/navigation";
+import { createClient as createSupabaseClient } from "@supabase/supabase-js";
 import { db } from "@/db";
-import { locationVisibilities, properties } from "@/db/schema";
+import { locationVisibilities, properties, propertyImages } from "@/db/schema";
 import { requireAuthenticatedUserId } from "@/lib/auth";
 import { parseCoordinates } from "@/lib/location";
 import { reservePropertyCode } from "@/lib/property-codes";
 import { requireOrganizationMembership } from "@/lib/organizations";
+import { PROPERTY_IMAGES_BUCKET } from "@/lib/property-images";
 import {
   currencies,
   operationTypes,
@@ -270,4 +272,127 @@ export async function archiveProperty(
 
   revalidatePath(propertiesPath(organizationSlug));
   redirect(propertiesPath(organizationSlug));
+}
+
+export async function permanentlyDeleteProperty(
+  organizationSlug: string,
+  propertyId: string,
+) {
+  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(propertyId)) {
+    return { ok: false as const, error: "not-found" as const };
+  }
+
+  const userId = await requireAuthenticatedUserId();
+  const membership = await requireOrganizationMembership(userId, organizationSlug);
+  if (!membership) return { ok: false as const, error: "not-found" as const };
+  if (membership.role !== "owner" && membership.role !== "admin") {
+    return { ok: false as const, error: "forbidden" as const };
+  }
+
+  let deleted: { storagePaths: string[] } | null;
+  try {
+    deleted = await db.transaction(async (tx) => {
+      const [property] = await tx
+        .select({ id: properties.id, status: properties.status })
+        .from(properties)
+        .where(and(
+          eq(properties.id, propertyId),
+          eq(properties.organizationId, membership.id),
+        ))
+        .for("update")
+        .limit(1);
+
+      if (!property) return null;
+      if (property.status !== "archived") return null;
+
+      const images = await tx
+        .select({ storagePath: propertyImages.storagePath })
+        .from(propertyImages)
+        .innerJoin(properties, eq(propertyImages.propertyId, properties.id))
+        .where(and(
+          eq(properties.id, propertyId),
+          eq(properties.organizationId, membership.id),
+        ));
+
+      const [removed] = await tx
+        .delete(properties)
+        .where(and(
+          eq(properties.id, propertyId),
+          eq(properties.organizationId, membership.id),
+        ))
+        .returning({ id: properties.id });
+
+      return removed ? { storagePaths: images.map(({ storagePath }) => storagePath) } : null;
+    });
+  } catch (error) {
+    console.error("[property-delete] Database deletion failed", {
+      organizationId: membership.id,
+      propertyId,
+      error,
+    });
+    return { ok: false as const, error: "delete-failed" as const };
+  }
+
+  if (!deleted) {
+    const [property] = await db
+      .select({ status: properties.status })
+      .from(properties)
+      .where(and(
+        eq(properties.id, propertyId),
+        eq(properties.organizationId, membership.id),
+      ))
+      .limit(1);
+    if (!property) return { ok: false as const, error: "not-found" as const };
+    return { ok: false as const, error: "not-archived" as const };
+  }
+
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const secretKey = process.env.SUPABASE_SECRET_KEY;
+  if (deleted.storagePaths.length > 0 && (!supabaseUrl || !secretKey)) {
+    console.error("[property-delete] Storage cleanup is not configured", {
+      organizationId: membership.id,
+      propertyId,
+      pendingStoragePaths: deleted.storagePaths,
+    });
+  }
+
+  const pendingStoragePaths: string[] = [];
+  if (deleted.storagePaths.length > 0 && supabaseUrl && secretKey) {
+    try {
+      const supabase = createSupabaseClient(supabaseUrl, secretKey, {
+        auth: { autoRefreshToken: false, persistSession: false, detectSessionInUrl: false },
+      });
+      for (const storagePath of deleted.storagePaths) {
+        try {
+          const { error } = await supabase.storage
+            .from(PROPERTY_IMAGES_BUCKET)
+            .remove([storagePath]);
+          if (error) pendingStoragePaths.push(storagePath);
+        } catch {
+          pendingStoragePaths.push(storagePath);
+        }
+      }
+    } catch {
+      pendingStoragePaths.push(...deleted.storagePaths);
+    }
+  } else {
+    pendingStoragePaths.push(...deleted.storagePaths);
+  }
+
+  if (pendingStoragePaths.length) {
+    console.error("[property-delete] Storage cleanup failed", {
+      organizationId: membership.id,
+      propertyId,
+      pendingStoragePaths,
+    });
+  }
+
+  const propertiesPathname = propertiesPath(organizationSlug);
+  revalidatePath(propertiesPathname);
+  revalidatePath(`/${encodeURIComponent(organizationSlug)}`);
+  revalidatePath(`/${encodeURIComponent(organizationSlug)}/properties`);
+  revalidatePath(`/${encodeURIComponent(organizationSlug)}/properties/${encodeURIComponent(propertyId)}`);
+  revalidatePath("/sitemap.xml");
+
+  return { ok: true as const, storageCleanupPending: pendingStoragePaths.length > 0 };
 }

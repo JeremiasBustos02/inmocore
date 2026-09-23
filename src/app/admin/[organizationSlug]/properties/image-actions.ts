@@ -22,6 +22,10 @@ function editPath(organizationSlug: string, propertyId: string) {
   return `/admin/${encodeURIComponent(organizationSlug)}/properties/${encodeURIComponent(propertyId)}/edit`;
 }
 
+function dashboardPath(organizationSlug: string) {
+  return `/admin/${encodeURIComponent(organizationSlug)}`;
+}
+
 async function requireAuthorizedProperty(
   organizationSlug: string,
   propertyId: string,
@@ -109,6 +113,7 @@ export async function registerPropertyImage(
   }
 
   revalidatePath(editPath(organizationSlug, propertyId));
+  revalidatePath(dashboardPath(organizationSlug));
   return { ok: true } as const;
 }
 
@@ -213,5 +218,6 @@ export async function deletePropertyImage(
     );
 
   revalidatePath(editPath(organizationSlug, propertyId));
+  revalidatePath(dashboardPath(organizationSlug));
   return { ok: true } as const;
 }

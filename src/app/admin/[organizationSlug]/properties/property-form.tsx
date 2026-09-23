@@ -3,6 +3,7 @@
 
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
+import { flushSync } from "react-dom";
 import { useRouter } from "next/navigation";
 import { AdminSubmitButton } from "@/components/admin/admin-submit-button";
 import { LocationPicker } from "@/components/maps/location-picker";
@@ -103,6 +104,8 @@ type PendingImage = {
   status: "processing" | "ready" | "error";
 };
 
+type CreationPhase = "idle" | "creating" | "uploading" | "finalizing";
+
 export function PropertyForm({
   action,
   cancelHref,
@@ -117,22 +120,27 @@ export function PropertyForm({
 }: PropertyFormProps) {
   const router = useRouter();
   const inputRef = useRef<HTMLInputElement>(null);
+  const submitLock = useRef(false);
   const previewUrls = useRef(new Set<string>());
   const [files, setFiles] = useState<PendingImage[]>([]);
   const [fileError, setFileError] = useState<string | null>(null);
   const [createError, setCreateError] = useState<string | null>(null);
-  const [progress, setProgress] = useState<string | null>(null);
+  const [creationPhase, setCreationPhase] = useState<CreationPhase>("idle");
+  const [uploadedCount, setUploadedCount] = useState(0);
+  const [totalUploads, setTotalUploads] = useState(0);
+  const [imageProcessingProgress, setImageProcessingProgress] = useState<string | null>(null);
   const [createdId, setCreatedId] = useState<string | null>(null);
   const [uploadedImageCount, setUploadedImageCount] = useState(0);
   const [totalImageCount, setTotalImageCount] = useState(0);
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  const isSubmitting = creationPhase !== "idle";
+  const progress = imageProcessingProgress;
   useEffect(() => () => previewUrls.current.forEach((url) => URL.revokeObjectURL(url)), []);
   async function processImages(items: PendingImage[]) {
-    setProgress("Preparando imágenes...");
+    setImageProcessingProgress("Preparando imágenes...");
     const results = await optimizeImageBatch(
       items.map(({ original }) => original),
       PROPERTY_IMAGE_PRESET,
-      (completed, total) => setProgress(`Optimizando ${completed} de ${total}...`),
+      (completed, total) => setImageProcessingProgress(`Optimizando ${completed} de ${total}...`),
     );
 
     setFiles((current) => {
@@ -152,7 +160,7 @@ export function PropertyForm({
       const byId = new Map(processed.map((item) => [item.id, item]));
       return current.map((item) => byId.get(item.id) ?? item);
     });
-    setProgress(null);
+    setImageProcessingProgress(null);
   }
 
   function selectFiles(selected: File[]) {
@@ -196,10 +204,17 @@ export function PropertyForm({
     const supabase = createClient();
     const uploadedIds = new Set<string>();
     let uploadedCount = 0;
-    for (const [index, item] of pendingFiles.entries()) {
+    let completedCount = 0;
+    setCreationPhase("uploading");
+    setUploadedCount(0);
+    setTotalUploads(pendingFiles.length);
+    for (const item of pendingFiles) {
       const file = item.optimized;
-      if (!file) continue;
-      setProgress(`Subiendo imágenes… ${index + 1} de ${pendingFiles.length}`);
+      if (!file) {
+        completedCount += 1;
+        setUploadedCount(completedCount);
+        continue;
+      }
       const storagePath = `${createImageUpload.organizationId}/${propertyId}/${crypto.randomUUID()}.webp`;
       try {
         const uploaded = await supabase.storage.from(PROPERTY_IMAGES_BUCKET).upload(storagePath, file, { contentType: "image/webp", cacheControl: IMAGE_CACHE_CONTROL, upsert: false });
@@ -207,21 +222,24 @@ export function PropertyForm({
           setFiles((current) => current.map((candidate) => candidate.id === item.id
             ? { ...candidate, uploadError: "No se pudo subir el WebP optimizado. Podés reintentar." }
             : candidate));
-          continue;
+        } else {
+          const registered = await registerPropertyImage(createImageUpload.organizationSlug, propertyId, storagePath);
+          if (registered.ok) { uploadedCount += 1; uploadedIds.add(item.id); }
+          else {
+            // Storage and SQL cannot share a transaction; remove an orphan if row registration fails.
+            await supabase.storage.from(PROPERTY_IMAGES_BUCKET).remove([storagePath]);
+            setFiles((current) => current.map((candidate) => candidate.id === item.id
+              ? { ...candidate, uploadError: registered.error }
+              : candidate));
+          }
         }
-        const registered = await registerPropertyImage(createImageUpload.organizationSlug, propertyId, storagePath);
-        if (registered.ok) { uploadedCount += 1; uploadedIds.add(item.id); continue; }
-        // Storage and SQL cannot share a transaction; remove an orphan if row registration fails.
-        await supabase.storage.from(PROPERTY_IMAGES_BUCKET).remove([storagePath]);
-        setFiles((current) => current.map((candidate) => candidate.id === item.id
-          ? { ...candidate, uploadError: registered.error }
-          : candidate));
       } catch {
         setFiles((current) => current.map((candidate) => candidate.id === item.id
           ? { ...candidate, uploadError: "No se pudo completar la subida. Podés reintentar." }
           : candidate));
-        continue;
       }
+      completedCount += 1;
+      setUploadedCount(completedCount);
     }
     setUploadedImageCount((count) => count + uploadedCount);
     setCreatedId(propertyId);
@@ -234,43 +252,58 @@ export function PropertyForm({
       return false;
     }));
     const failedCount = pendingFiles.length - uploadedIds.size;
-    setProgress(failedCount ? `Propiedad creada. Se subieron ${uploadedImageCount + uploadedCount} de ${totalImageCount || pendingFiles.length} imágenes.` : "Finalizando…");
+    if (failedCount) {
+      setCreationPhase("idle");
+      setCreateError(`Propiedad creada. Se subieron ${uploadedImageCount + uploadedCount} de ${totalImageCount || pendingFiles.length} imágenes.`);
+    } else {
+      setCreationPhase("finalizing");
+    }
     if (!failedCount) router.push(`/admin/${encodeURIComponent(createImageUpload.organizationSlug)}/properties/${encodeURIComponent(propertyId)}/edit?created=1`);
     return failedCount;
   }
   async function retryPending() {
-    if (!createdId || !files.length) return;
-    setIsSubmitting(true);
+    if (!createdId || !files.length || submitLock.current) return;
+    submitLock.current = true;
+    setCreateError(null);
+    setTotalUploads(files.filter(({ status }) => status === "ready").length);
     try { await uploadPending(createdId, files.filter(({ status }) => status === "ready")); }
-    finally { setIsSubmitting(false); }
+    catch { setCreateError("La propiedad está creada, pero no se pudo completar la subida. Podés reintentar."); setCreationPhase("idle"); }
+    finally { submitLock.current = false; }
   }
   async function handleCreate(event: React.FormEvent<HTMLFormElement>) {
     if (!createImageUpload) return;
     event.preventDefault();
-    setIsSubmitting(true);
+    if (submitLock.current || creationPhase !== "idle" || createdId) return;
+    submitLock.current = true;
+    flushSync(() => setCreationPhase("creating"));
     setFileError(null);
     setCreateError(null);
-    setProgress("Creando propiedad…");
+    let propertyCreated = false;
     try {
       const result = await action(new FormData(event.currentTarget));
       if (!result || typeof result !== "object" || !result.ok || !result.propertyId) {
         setCreateError(result?.error === "code" ? "No se pudo generar un código único para la propiedad. Intentá nuevamente." : "Revisá los campos obligatorios y los valores numéricos.");
-        setProgress(null);
+        setCreationPhase("idle");
         return;
       }
+      propertyCreated = true;
       setCreatedId(result.propertyId);
       setTotalImageCount(files.length);
-       if (!files.length) { setProgress("Finalizando…"); router.push(`/admin/${encodeURIComponent(createImageUpload.organizationSlug)}/properties/${encodeURIComponent(result.propertyId)}/edit?created=1`); return; }
+       if (!files.length) { setCreationPhase("finalizing"); router.push(`/admin/${encodeURIComponent(createImageUpload.organizationSlug)}/properties/${encodeURIComponent(result.propertyId)}/edit?created=1`); return; }
        await uploadPending(result.propertyId, files);
-    } catch { setProgress("No se pudo crear la propiedad. Revisá los datos e intentá nuevamente."); }
-    finally { setIsSubmitting(false); }
+    } catch {
+      setCreateError(propertyCreated ? "Propiedad creada, pero ocurrió un problema al subir las imágenes. Podés reintentar." : "No se pudo crear la propiedad por un problema de conexión. Revisá los datos e intentá nuevamente.");
+      setCreationPhase("idle");
+    }
+    finally { submitLock.current = false; }
   }
   const initialCoordinates = initialValues?.latitude !== null && initialValues?.latitude !== undefined && initialValues.longitude !== null && initialValues.longitude !== undefined
     ? { latitude: initialValues.latitude, longitude: initialValues.longitude }
     : null;
 
   return (
-    <form action={createImageUpload ? undefined : (formData) => { void action(formData); }} onSubmit={createImageUpload ? handleCreate : undefined} className="flex flex-col gap-8">
+    <>
+    <form aria-busy={creationPhase !== "idle"} inert={creationPhase !== "idle"} action={createImageUpload ? undefined : (formData) => { void action(formData); }} onSubmit={createImageUpload ? handleCreate : undefined} className="flex flex-col gap-8">
       {error ? (
         <Field data-invalid>
           <FieldError>
@@ -430,10 +463,13 @@ export function PropertyForm({
       </FieldSet>
 
       <div className="flex flex-wrap justify-end gap-3">
-        <Link className={buttonVariants({ variant: "outline" })} href={cancelHref}>Cancelar</Link>
-        {createImageUpload ? <Button disabled={isSubmitting || Boolean(fileError) || Boolean(createdId) || Boolean(progress) || files.some(({ status }) => status !== "ready")} type="submit">{createdId ? "Propiedad creada" : isSubmitting ? progress ?? "Procesando…" : submitLabel}</Button> : <AdminSubmitButton pendingLabel={pendingLabel}>{submitLabel}</AdminSubmitButton>}
+        <Link aria-disabled={creationPhase !== "idle"} className={`${buttonVariants({ variant: "outline" })} ${creationPhase !== "idle" ? "pointer-events-none opacity-50" : ""}`} href={cancelHref} tabIndex={creationPhase !== "idle" ? -1 : undefined}>Cancelar</Link>
+        {createImageUpload ? <>{createdId && (files.some(({ uploadError }) => uploadError) || Boolean(createError)) ? <Button disabled={creationPhase !== "idle"} onClick={() => void retryPending()} type="button" variant="outline">Reintentar imágenes pendientes</Button> : null}<Button disabled={creationPhase !== "idle" || Boolean(fileError) || Boolean(createdId) || Boolean(imageProcessingProgress) || files.some(({ status }) => status !== "ready")} type="submit">{createdId ? "Propiedad creada" : submitLabel}</Button></> : <AdminSubmitButton pendingLabel={pendingLabel}>{submitLabel}</AdminSubmitButton>}
       </div>
     </form>
+    {imageProcessingProgress && creationPhase === "idle" ? <p aria-live="polite" className="sr-only">{imageProcessingProgress}</p> : null}
+    {createImageUpload && creationPhase !== "idle" ? <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/20 p-4 backdrop-blur-[1px]" aria-hidden="false"><div aria-live="polite" className="w-full max-w-[360px] rounded-lg border bg-background p-7 text-center shadow-xl motion-safe:animate-in motion-safe:fade-in motion-safe:zoom-in-95 motion-safe:duration-200" role="status"><span aria-hidden="true" className="mx-auto mb-5 block size-8 animate-spin rounded-full border-2 border-muted border-t-primary motion-reduce:animate-none" /><p className="font-medium">{creationPhase === "creating" ? "Creando propiedad..." : creationPhase === "uploading" ? "Subiendo imágenes..." : "Finalizando..."}</p><p className="mt-2 text-sm text-muted-foreground">{creationPhase === "creating" ? "Estamos guardando los datos." : creationPhase === "uploading" ? `${uploadedCount} de ${totalUploads} completadas` : "Estamos preparando la propiedad."}</p></div></div> : null}
+    </>
   );
 }
 
