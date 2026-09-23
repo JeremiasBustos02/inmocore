@@ -1,5 +1,6 @@
 import {
   getImageProcessingConcurrency,
+  HERO_IMAGE_PRESET,
   LOGO_IMAGE_PRESET,
   optimizeImage,
   optimizeImageBatch,
@@ -14,6 +15,7 @@ const TEST_PRESET: ImagePreset = {
   initialQuality: 0.8,
   hardLimitBytes: 400 * 1024,
   dimensionScales: [1, 0.75, 0.5],
+  fallbackFormat: "image/jpeg",
 };
 
 export async function runImageOptimizationCheck() {
@@ -21,26 +23,30 @@ export async function runImageOptimizationCheck() {
   const sourceMetadata = await readJpegMetadata(orientationFixture);
   assert(sourceMetadata.orientation === 6, "La fixture JPEG no contiene orientación EXIF 6.");
   assert([1, 2, 3, 4].every((tag) => sourceMetadata.gpsTags.includes(tag)), "La fixture JPEG no contiene tags GPS completos.");
+  assert(containsAscii(new Uint8Array(await orientationFixture.arrayBuffer()), "http://ns.adobe.com/xap/1.0/"), "La fixture JPEG no contiene XMP.");
 
   const orientationResult = await optimizeImage(orientationFixture, PROPERTY_IMAGE_PRESET);
-  assert(orientationResult.file.type === "image/webp", "La salida de orientación no tiene MIME image/webp.");
+  assert(["image/webp", "image/jpeg"].includes(orientationResult.file.type), "Formato de salida inesperado.");
+  assert(orientationResult.file.name.endsWith(orientationResult.file.type === "image/webp" ? ".webp" : ".jpg"), "La extensión no corresponde al formato de salida.");
   assert(orientationResult.outputWidth === 300 && orientationResult.outputHeight === 600, "La imagen pequeña se amplió o perdió la orientación.");
-  const orientationBitmap = await decodeWebp(orientationResult.file);
+  const orientationBitmap = await decodeImage(orientationResult.file);
   assert(orientationBitmap.width === 300 && orientationBitmap.height === 600, "No se aplicó visualmente la orientación EXIF 6.");
-  assert(orientationResult.attempts <= 9, "La compresión excedió el máximo de intentos.");
+  assert(orientationResult.attempts <= 18, "La compresión excedió el máximo de intentos.");
   const orientedPixels = readPixels(orientationBitmap, 150, 150, 150, 450);
   orientationBitmap.close();
   assert(orientedPixels.top[0] > orientedPixels.top[2], "La parte superior no corresponde al lado izquierdo original.");
   assert(orientedPixels.bottom[2] > orientedPixels.bottom[0], "La parte inferior no corresponde al lado derecho original.");
-  const orientationChunks = await readWebpChunks(orientationResult.file);
+  const orientationChunks = orientationResult.file.type === "image/webp" ? await readWebpChunks(orientationResult.file) : [];
   assert(!orientationChunks.includes("EXIF") && !orientationChunks.includes("XMP "), "La salida conserva chunks EXIF o XMP.");
-  assert(!(await readJpegMetadata(orientationResult.file)).gpsTags.length, "La salida todavía contiene GPS EXIF.");
+  const outputJpegMetadata = await readJpegMetadata(orientationResult.file);
+  assert(outputJpegMetadata.orientation === null && !outputJpegMetadata.gpsTags.length, "La salida todavía contiene EXIF/GPS.");
+  assert(!containsAscii(new Uint8Array(await orientationResult.file.arrayBuffer()), "http://ns.adobe.com/xap/1.0/"), "La salida todavía contiene XMP.");
 
   const transparentPng = await createTransparentPngFixture();
   const logoResult = await optimizeImage(transparentPng, LOGO_IMAGE_PRESET);
-  assert(logoResult.file.type === "image/webp", "La salida del logo no es WebP.");
+  assert(["image/webp", "image/png"].includes(logoResult.file.type), "Formato de salida de logo inesperado.");
   assert(logoResult.outputWidth === 160 && logoResult.outputHeight === 100, "El preset del logo hizo upscale.");
-  const logoBitmap = await decodeWebp(logoResult.file);
+  const logoBitmap = await decodeImage(logoResult.file);
   const alphaPixels = readAlphaPixels(logoBitmap, 2, 2, 80, 50);
   logoBitmap.close();
   assert(alphaPixels.transparent === 0, "El logo perdió transparencia en las esquinas.");
@@ -49,7 +55,7 @@ export async function runImageOptimizationCheck() {
   const smallPng = await createSolidPngFixture(160, 90);
   const smallResult = await optimizeImage(smallPng, PROPERTY_IMAGE_PRESET);
   assert(smallResult.outputWidth === 160 && smallResult.outputHeight === 90, "La imagen pequeña fue ampliada.");
-  assert(smallResult.file.type === "image/webp" && smallResult.outputBytes > 0, "La imagen pequeña no fue re-encodeada a WebP.");
+  assert(["image/webp", "image/jpeg"].includes(smallResult.file.type) && smallResult.outputBytes > 0, "La imagen pequeña no fue re-encodeada.");
 
   const corruptFile = new File([new Uint8Array([0xff, 0xd8, 0xff, 0xc0, 0, 17, 8, 0, 20, 0, 20, 3, 1, 0x11, 0, 2, 0x11, 0, 3, 0x11, 0])], "fake.jpg", { type: "image/jpeg" });
   let corruptRejected = false;
@@ -65,7 +71,7 @@ export async function runImageOptimizationCheck() {
 
   const noisyJpeg = await createNoiseJpegFixture(1600, 1000);
   const adaptiveResult = await optimizeImage(noisyJpeg, TEST_PRESET);
-  assert(adaptiveResult.attempts > 1 && adaptiveResult.attempts <= 9, "La fixture de compresión no recorrió una secuencia adaptativa finita.");
+  assert(adaptiveResult.attempts > 1 && adaptiveResult.attempts <= 18, "La fixture de compresión no recorrió una secuencia adaptativa finita.");
   assert(adaptiveResult.outputBytes <= TEST_PRESET.hardLimitBytes, "El resultado adaptativo excede el límite de prueba.");
 
   let impossibleHardCapRejected = false;
@@ -76,13 +82,44 @@ export async function runImageOptimizationCheck() {
   }
   assert(impossibleHardCapRejected, "Una imagen que excede todos los límites fue aceptada.");
 
+  const fallbackProperty = await optimizeImage(orientationFixture, PROPERTY_IMAGE_PRESET, { webpEncodingSupported: false });
+  assert(fallbackProperty.file.type === "image/jpeg" && fallbackProperty.file.name.endsWith(".jpg"), "El fallback de property no es JPEG con extensión .jpg.");
+  assert(fallbackProperty.outputWidth === 300 && fallbackProperty.outputHeight === 600, "El fallback de property no preservó dimensiones/orientación.");
+  assert(fallbackProperty.outputBytes <= PROPERTY_IMAGE_PRESET.hardLimitBytes, "El fallback de property excede el hard cap.");
+  assert(!(await bytesEqual(fallbackProperty.file, orientationFixture)), "El fallback subió el JPEG original sin re-encodear.");
+  const fallbackMetadata = await readJpegMetadata(fallbackProperty.file);
+  const fallbackJpegBytes = new Uint8Array(await fallbackProperty.file.arrayBuffer());
+  assert(fallbackJpegBytes[0] === 0xff && fallbackJpegBytes[1] === 0xd8 && fallbackJpegBytes.at(-2) === 0xff && fallbackJpegBytes.at(-1) === 0xd9, "El JPEG fallback no contiene bytes JPEG válidos.");
+  assert(fallbackMetadata.orientation === null && fallbackMetadata.gpsTags.length === 0, "El JPEG fallback conserva EXIF/GPS.");
+  assert(!containsAscii(fallbackJpegBytes, "http://ns.adobe.com/xap/1.0/"), "El JPEG fallback conserva XMP.");
+  const fallbackPropertyBitmap = await decodeImage(fallbackProperty.file);
+  assert(fallbackPropertyBitmap.width === fallbackProperty.outputWidth && fallbackPropertyBitmap.height === fallbackProperty.outputHeight, "Las dimensiones del JPEG fallback no son reales.");
+  fallbackPropertyBitmap.close();
+
+  const fallbackHero = await optimizeImage(noisyJpeg, HERO_IMAGE_PRESET, { webpEncodingSupported: false });
+  assert(fallbackHero.file.type === "image/jpeg" && fallbackHero.outputBytes <= HERO_IMAGE_PRESET.hardLimitBytes, "El fallback de Hero no produjo JPEG bajo el hard cap.");
+  assert(fallbackHero.file.name.endsWith(".jpg") && !(await bytesEqual(fallbackHero.file, noisyJpeg)), "El fallback de Hero no fue re-encodeado como JPEG.");
+  const fallbackHeroBitmap = await decodeImage(fallbackHero.file);
+  assert(fallbackHeroBitmap.width === fallbackHero.outputWidth && fallbackHeroBitmap.height === fallbackHero.outputHeight, "El Hero fallback no tiene las dimensiones esperadas.");
+  fallbackHeroBitmap.close();
+  assert(Math.max(fallbackHero.outputWidth, fallbackHero.outputHeight) <= HERO_IMAGE_PRESET.maxDimension, "El fallback de Hero excede 2200 px.");
+  const fallbackLogo = await optimizeImage(transparentPng, LOGO_IMAGE_PRESET, { webpEncodingSupported: false });
+  assert(fallbackLogo.file.type === "image/png" && fallbackLogo.outputBytes <= LOGO_IMAGE_PRESET.hardLimitBytes, "El fallback del logo no produjo PNG bajo el hard cap.");
+  const fallbackPngBytes = new Uint8Array(await fallbackLogo.file.arrayBuffer());
+  assert(fallbackLogo.file !== transparentPng && fallbackLogo.file.name.endsWith(".png") && matchesAscii(fallbackPngBytes, 1, "PNG\r\n\x1a\n"), "El logo fallback no produjo un nuevo archivo PNG.");
+  assert(!containsAscii(fallbackPngBytes, "eXIf") && !containsAscii(fallbackPngBytes, "iTXt"), "El PNG fallback contiene metadata.");
+  const fallbackLogoBitmap = await decodeImage(fallbackLogo.file);
+  const fallbackAlpha = readAlphaPixels(fallbackLogoBitmap, 2, 2, 80, 50);
+  fallbackLogoBitmap.close();
+  assert(fallbackAlpha.transparent === 0 && fallbackAlpha.opaque > 240, "El PNG fallback perdió el canal alpha.");
+
   const batch = await optimizeImageBatch([smallPng, corruptFile, transparentPng], PROPERTY_IMAGE_PRESET);
   assert(batch.length === 3 && batch[0].ok && !batch[1].ok && batch[2].ok, "Un archivo fallido interrumpió o desordenó el lote.");
   assert(getImageProcessingConcurrency("Windows Chrome") === 2, "La concurrencia desktop no es 2.");
   assert(getImageProcessingConcurrency("iPhone Safari") === 1, "La concurrencia móvil no es 1.");
   assert(getImageProcessingConcurrency("Macintosh", true) === 1, "La concurrencia iPad en modo escritorio no es 1.");
 
-  const webpChunks = await readWebpChunks(orientationResult.file);
+  const webpChunks = orientationResult.file.type === "image/webp" ? await readWebpChunks(orientationResult.file) : [];
   return {
     orientationExifGps: {
       originalBytes: orientationFixture.size,
@@ -93,7 +130,7 @@ export async function runImageOptimizationCheck() {
       riffWebpChunks: webpChunks,
       exifRemoved: !webpChunks.includes("EXIF"),
       xmpRemoved: !webpChunks.includes("XMP "),
-      gpsRemoved: !(await readJpegMetadata(orientationResult.file)).gpsTags.length,
+      gpsRemoved: !outputJpegMetadata.gpsTags.length,
       orientationApplied: true,
     },
     transparentLogo: {
@@ -106,7 +143,7 @@ export async function runImageOptimizationCheck() {
     smallImage: {
       originalDimensions: "160x90",
       finalDimensions: `${smallResult.outputWidth}x${smallResult.outputHeight}`,
-      reencodedWebp: smallResult.file.type === "image/webp",
+      reencodedFormat: smallResult.file.type,
     },
     corruptImageRejected: corruptRejected,
     heicRejected: true,
@@ -117,6 +154,11 @@ export async function runImageOptimizationCheck() {
       quality: adaptiveResult.quality,
       dimensions: `${adaptiveResult.outputWidth}x${adaptiveResult.outputHeight}`,
       impossibleHardCapRejected,
+    },
+    forcedWebpUnavailable: {
+      property: { format: fallbackProperty.file.type, dimensions: `${fallbackProperty.outputWidth}x${fallbackProperty.outputHeight}`, bytes: fallbackProperty.outputBytes, exifGpsRemoved: !fallbackMetadata.gpsTags.length && fallbackMetadata.orientation === null },
+      hero: { format: fallbackHero.file.type, dimensions: `${fallbackHero.outputWidth}x${fallbackHero.outputHeight}`, bytes: fallbackHero.outputBytes },
+      logo: { format: fallbackLogo.file.type, dimensions: `${fallbackLogo.outputWidth}x${fallbackLogo.outputHeight}`, bytes: fallbackLogo.outputBytes, transparentAlpha: fallbackAlpha.transparent },
     },
     batch: { statuses: batch.map((result) => result.ok ? "PASS" : "FAIL"), desktopConcurrency: 2, mobileConcurrency: 1, iPadDesktopModeConcurrency: 1 },
   };
@@ -139,11 +181,15 @@ async function createJpegFixture({ orientation, gps }: { orientation: number; gp
   payload.set([0x45, 0x78, 0x69, 0x66, 0, 0]);
   payload.set(tiff, 6);
   const segmentLength = payload.length + 2;
-  const result = new Uint8Array(original.length + payload.length + 4);
+  const xmp = new TextEncoder().encode("http://ns.adobe.com/xap/1.0/\0<x:xmpmeta>gps-fixture</x:xmpmeta>");
+  const result = new Uint8Array(original.length + payload.length + 4 + xmp.length + 4);
   result.set(original.subarray(0, 2), 0);
   result.set([0xff, 0xe1, segmentLength >> 8, segmentLength & 0xff], 2);
   result.set(payload, 6);
-  result.set(original.subarray(2), 6 + payload.length);
+  const xmpOffset = 6 + payload.length;
+  result.set([0xff, 0xe1, (xmp.length + 2) >> 8, (xmp.length + 2) & 0xff], xmpOffset);
+  result.set(xmp, xmpOffset + 4);
+  result.set(original.subarray(2), xmpOffset + 4 + xmp.length);
   return new File([result], "synthetic-gps-orientation-fixture.jpg", { type: "image/jpeg" });
 }
 
@@ -245,12 +291,23 @@ async function readWebpChunks(blob: Blob) {
   return chunks;
 }
 
-async function decodeWebp(blob: Blob) {
-  const chunks = await readWebpChunks(blob);
-  assert(!chunks.includes("EXIF") && !chunks.includes("XMP "), "WebP contiene metadata EXIF/XMP.");
+async function decodeImage(blob: Blob) {
   const bitmap = await createImageBitmap(blob);
-  assert(bitmap.width > 0 && bitmap.height > 0, "El WebP no se pudo decodificar.");
+  assert(bitmap.width > 0 && bitmap.height > 0, "La salida optimizada no se pudo decodificar.");
   return bitmap;
+}
+
+async function bytesEqual(first: Blob, second: Blob) {
+  const [firstBytes, secondBytes] = await Promise.all([first.arrayBuffer(), second.arrayBuffer()]);
+  if (firstBytes.byteLength !== secondBytes.byteLength) return false;
+  const left = new Uint8Array(firstBytes);
+  const right = new Uint8Array(secondBytes);
+  return left.every((byte, index) => byte === right[index]);
+}
+
+function containsAscii(bytes: Uint8Array, value: string) {
+  const target = new TextEncoder().encode(value);
+  return bytes.some((_, start) => target.every((byte, offset) => bytes[start + offset] === byte));
 }
 
 function readPixels(bitmap: ImageBitmap, topX: number, topY: number, bottomX: number, bottomY: number) {

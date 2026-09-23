@@ -16,6 +16,7 @@ import {
   HERO_IMAGE_PRESET,
   IMAGE_CACHE_CONTROL,
   LOGO_IMAGE_PRESET,
+  getOptimizedImageExtension,
   optimizeImage,
 } from "@/lib/image-optimization";
 import { createClient } from "@/lib/supabase/client";
@@ -65,14 +66,16 @@ export function OrganizationAssetUpload({
       const preset = assetType === "hero" ? HERO_IMAGE_PRESET : LOGO_IMAGE_PRESET;
       const optimized = await optimizeImage(file, preset);
       setMessage("Subiendo imagen optimizada...");
-      const storagePath = `${organizationId}/${assetType}/${crypto.randomUUID()}.webp`;
+      const extension = getOptimizedImageExtension(optimized.file.type);
+      if (!extension) throw new Error("El formato optimizado no es compatible.");
+      const storagePath = `${organizationId}/${assetType}/${crypto.randomUUID()}.${extension}`;
       const supabase = createClient();
       const { error: uploadError } = await supabase.storage
         .from(ORGANIZATION_ASSETS_BUCKET)
-        .upload(storagePath, optimized.file, { contentType: "image/webp", cacheControl: IMAGE_CACHE_CONTROL, upsert: false });
+        .upload(storagePath, optimized.file, { contentType: optimized.file.type, cacheControl: IMAGE_CACHE_CONTROL, upsert: false });
       if (uploadError) throw new Error("No se pudo subir la imagen.");
 
-      const result = await updateOrganizationAsset(organizationSlug, assetType, storagePath);
+      const result = await updateOrganizationAsset(organizationSlug, assetType, storagePath, optimized.file.type);
       if (!result.ok) {
         await supabase.storage.from(ORGANIZATION_ASSETS_BUCKET).remove([storagePath]);
         throw new Error(result.error);
@@ -108,7 +111,7 @@ export function OrganizationAssetUpload({
         <AdminFilePicker
           accept="image/png,image/jpeg,image/webp"
           files={selectedFile}
-          hint={`PNG, JPG o WebP · original hasta ${MAX_ORGANIZATION_ASSET_INPUT_SIZE / 1024 / 1024} MB · salida WebP hasta ${MAX_ORGANIZATION_ASSET_SIZE / 1024 / 1024} MB`}
+          hint={`PNG, JPG o WebP · original hasta ${MAX_ORGANIZATION_ASSET_INPUT_SIZE / 1024 / 1024} MB · salida optimizada hasta ${MAX_ORGANIZATION_ASSET_SIZE / 1024 / 1024} MB`}
           inputRef={inputRef}
           label={currentUrl ? "Seleccionar nueva imagen" : "Seleccionar imagen"}
           onChange={setSelectedFile}
@@ -119,7 +122,7 @@ export function OrganizationAssetUpload({
           {isUploading ? "Subiendo…" : currentUrl ? "Reemplazar" : "Subir imagen"}
         </Button>
       </div>
-      <p className="text-xs text-muted-foreground">Se convierte a WebP y se optimiza antes de subir. El logo conserva transparencia.</p>
+      <p className="text-xs text-muted-foreground">Se convierte y optimiza antes de subir. El logo conserva transparencia.</p>
       {message ? <p className="text-sm text-muted-foreground" role="status">{message}</p> : null}
       {error ? <p className="text-sm text-destructive" role="alert">{error}</p> : null}
     </div>

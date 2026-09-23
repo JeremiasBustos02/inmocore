@@ -8,6 +8,7 @@ import { properties, propertyImages } from "@/db/schema";
 import { requireAuthenticatedUserId } from "@/lib/auth";
 import {
   MAX_PROPERTY_IMAGES,
+  PROPERTY_IMAGE_EXTENSIONS,
   PROPERTY_IMAGES_BUCKET,
 } from "@/lib/property-images";
 import { requireOrganizationMembership } from "@/lib/organizations";
@@ -16,7 +17,7 @@ import { createClient } from "@/lib/supabase/server";
 const UUID_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const IMAGE_FILENAME_PATTERN =
-  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}\.webp$/i;
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}\.(webp|jpg)$/i;
 
 function editPath(organizationSlug: string, propertyId: string) {
   return `/admin/${encodeURIComponent(organizationSlug)}/properties/${encodeURIComponent(propertyId)}/edit`;
@@ -77,10 +78,16 @@ export async function registerPropertyImage(
   organizationSlug: string,
   propertyId: string,
   storagePath: string,
+  contentType: string,
 ) {
   const property = await requireAuthorizedProperty(organizationSlug, propertyId);
+  const expectedExtension = PROPERTY_IMAGE_EXTENSIONS[contentType as keyof typeof PROPERTY_IMAGE_EXTENSIONS];
 
-  if (!isValidStoragePath(storagePath, property.organizationId, property.id)) {
+  if (
+    !expectedExtension ||
+    !storagePath.toLowerCase().endsWith(`.${expectedExtension}`) ||
+    !isValidStoragePath(storagePath, property.organizationId, property.id)
+  ) {
     return { ok: false, error: "La ruta de la imagen no es válida." } as const;
   }
 

@@ -4,4 +4,5 @@ export const MAX_PROPERTY_IMAGE_SIZE = 2 * 1024 * 1024;
 
 export const PROPERTY_IMAGE_EXTENSIONS = {
   "image/webp": "webp",
+  "image/jpeg": "jpg",
 } as const;

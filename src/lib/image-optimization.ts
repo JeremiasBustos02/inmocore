@@ -10,14 +10,16 @@ export type ImagePreset = {
   initialQuality: number;
   hardLimitBytes: number;
   dimensionScales: readonly number[];
+  fallbackFormat: "image/jpeg" | "image/png";
 };
 
 export const PROPERTY_IMAGE_PRESET: ImagePreset = {
   maxDimension: 1920,
   minimumDimension: 1200,
-  initialQuality: 0.8,
+  initialQuality: 0.82,
   hardLimitBytes: 2 * 1024 * 1024,
   dimensionScales: [1, 0.85, 0.7],
+  fallbackFormat: "image/jpeg",
 };
 
 export const HERO_IMAGE_PRESET: ImagePreset = {
@@ -26,6 +28,7 @@ export const HERO_IMAGE_PRESET: ImagePreset = {
   initialQuality: 0.82,
   hardLimitBytes: 2 * 1024 * 1024,
   dimensionScales: [1, 0.85, 0.7],
+  fallbackFormat: "image/jpeg",
 };
 
 export const LOGO_IMAGE_PRESET: ImagePreset = {
@@ -34,10 +37,12 @@ export const LOGO_IMAGE_PRESET: ImagePreset = {
   initialQuality: 0.82,
   hardLimitBytes: 1024 * 1024,
   dimensionScales: [1, 0.8, 0.6],
+  fallbackFormat: "image/png",
 };
 
 const INPUT_TYPES = new Set(["image/jpeg", "image/png", "image/webp"]);
-const QUALITY_STEPS = [1, 0.9375, 0.875] as const;
+const QUALITY_STEPS = [1, 0.94, 0.88] as const;
+let webpEncodingSupport: Promise<boolean> | undefined;
 
 export type ImageOptimizationResult = {
   file: File;
@@ -49,6 +54,10 @@ export type ImageOptimizationResult = {
   outputBytes: number;
   quality: number;
   attempts: number;
+};
+
+type OptimizationOptions = {
+  webpEncodingSupported?: boolean;
 };
 
 export type ImageBatchResult =
@@ -78,6 +87,7 @@ export function validateImageInput(file: File) {
 export async function optimizeImage(
   file: File,
   preset: ImagePreset,
+  options: OptimizationOptions = {},
 ): Promise<ImageOptimizationResult> {
   const validationError = validateImageInput(file);
   if (validationError) throw new Error(validationError);
@@ -108,49 +118,61 @@ export async function optimizeImage(
     const baseWidth = Math.max(1, Math.round(inputWidth * ratio));
     const baseHeight = Math.max(1, Math.round(inputHeight * ratio));
     const dimensions = getDimensionAttempts(baseWidth, baseHeight, preset);
-
+    const supportsWebp = options.webpEncodingSupported ?? await canEncodeWebp();
+    const formats = supportsWebp
+      ? ["image/webp", preset.fallbackFormat] as const
+      : [preset.fallbackFormat] as const;
     let attempts = 0;
-    for (const dimension of dimensions) {
-      for (const qualityScale of QUALITY_STEPS) {
-        attempts += 1;
-        const quality = Number((preset.initialQuality * qualityScale).toFixed(3));
-        const blob = await rasterizeWebp(bitmap, dimension.width, dimension.height, quality);
-        if (blob.size > preset.hardLimitBytes) continue;
-        if (!(await isValidWebp(blob))) {
-          throw new Error("El navegador no pudo generar un WebP válido sin metadata.");
-        }
 
-        const optimizedFile = new File([blob], "optimized.webp", {
-          type: "image/webp",
-          lastModified: Date.now(),
-        });
-        const result = {
-          file: optimizedFile,
-          inputWidth,
-          inputHeight,
-          outputWidth: dimension.width,
-          outputHeight: dimension.height,
-          originalBytes: file.size,
-          outputBytes: blob.size,
-          quality,
-          attempts,
-        } satisfies ImageOptimizationResult;
+    for (const format of formats) {
+      for (const dimension of dimensions) {
+        const qualitySteps = format === "image/png" ? [1] : QUALITY_STEPS;
+        for (const qualityScale of qualitySteps) {
+          attempts += 1;
+          const quality = Number((preset.initialQuality * qualityScale).toFixed(3));
+          let blob: Blob;
+          try {
+            blob = await rasterize(bitmap, dimension.width, dimension.height, format, quality);
+          } catch {
+            // A browser can pass the capability probe yet fail a real encode; try the fallback.
+            break;
+          }
+          if (blob.size > preset.hardLimitBytes) continue;
+          if (!(await isValidOutput(blob, format, dimension.width, dimension.height))) break;
 
-        if (process.env.NODE_ENV === "development") {
-          const reduction = Math.max(0, (1 - blob.size / file.size) * 100);
-          console.info("[image-optimization]", {
-            input: `${file.size} bytes, ${inputWidth}x${inputHeight}, ${file.type}`,
-            output: `${blob.size} bytes, ${dimension.width}x${dimension.height}, image/webp`,
-            reduction: `${reduction.toFixed(1)}%`,
-            quality,
+          const extension = extensionForMimeType(format);
+          const optimizedFile = new File([blob], `optimized.${extension}`, {
+            type: format,
+            lastModified: Date.now(),
           });
-        }
+          const result = {
+            file: optimizedFile,
+            inputWidth,
+            inputHeight,
+            outputWidth: dimension.width,
+            outputHeight: dimension.height,
+            originalBytes: file.size,
+            outputBytes: blob.size,
+            quality,
+            attempts,
+          } satisfies ImageOptimizationResult;
 
-        return result;
+          if (process.env.NODE_ENV === "development") {
+            const reduction = Math.max(0, (1 - blob.size / file.size) * 100);
+            console.info("[image-optimization]", {
+              input: `${file.size} bytes, ${inputWidth}x${inputHeight}, ${file.type}`,
+              output: `${blob.size} bytes, ${dimension.width}x${dimension.height}, ${format}`,
+              reduction: `${reduction.toFixed(1)}%`,
+              quality,
+            });
+          }
+
+          return result;
+        }
       }
     }
 
-    throw new Error("No pudimos optimizar esta imagen dentro del límite de 2 MB.");
+    throw new Error("No pudimos optimizar esta imagen dentro del límite permitido.");
   } finally {
     bitmap.close();
   }
@@ -216,7 +238,28 @@ function getDimensionAttempts(width: number, height: number, preset: ImagePreset
   return attempts.filter((attempt): attempt is { width: number; height: number } => attempt !== null);
 }
 
-function rasterizeWebp(bitmap: ImageBitmap, width: number, height: number, quality: number) {
+export function getOptimizedImageExtension(mimeType: string) {
+  return mimeType === "image/webp" ? "webp" : mimeType === "image/jpeg" ? "jpg" : mimeType === "image/png" ? "png" : null;
+}
+
+export async function canEncodeWebp() {
+  webpEncodingSupport ??= detectWebpEncodingSupport();
+  return webpEncodingSupport;
+}
+
+async function detectWebpEncodingSupport() {
+  try {
+    const canvas = document.createElement("canvas");
+    canvas.width = 1;
+    canvas.height = 1;
+    const blob = await canvasBlob(canvas, "image/webp", 0.8);
+    return await isValidOutput(blob, "image/webp");
+  } catch {
+    return false;
+  }
+}
+
+function rasterize(bitmap: ImageBitmap, width: number, height: number, format: string, quality: number) {
   return new Promise<Blob>((resolve, reject) => {
     const canvas = document.createElement("canvas");
     canvas.width = width;
@@ -232,43 +275,107 @@ function rasterizeWebp(bitmap: ImageBitmap, width: number, height: number, quali
       (blob) => {
         canvas.width = 0;
         canvas.height = 0;
-        if (!blob || blob.type !== "image/webp") {
-          reject(new Error("Este navegador no pudo generar imágenes WebP."));
+        if (!blob || blob.type !== format) {
+          reject(new Error("No se pudo codificar la imagen procesada."));
           return;
         }
         resolve(blob);
       },
-      "image/webp",
-      quality,
+      format,
+      format === "image/png" ? undefined : quality,
     );
   });
 }
 
-async function isValidWebp(blob: Blob) {
-  if (blob.type !== "image/webp" || blob.size < 16) return false;
-  const bytes = new Uint8Array(await blob.slice(0, 12).arrayBuffer());
-  if (
-    String.fromCharCode(...bytes.subarray(0, 4)) !== "RIFF" ||
-    String.fromCharCode(...bytes.subarray(8, 12)) !== "WEBP"
-  ) return false;
-
-  const header = new DataView(await blob.arrayBuffer());
-  for (let offset = 12; offset + 8 <= blob.size;) {
-    const chunkType = String.fromCharCode(...new Uint8Array(await blob.slice(offset, offset + 4).arrayBuffer()));
-    if (chunkType === "EXIF" || chunkType === "XMP ") return false;
-    const chunkSize = header.getUint32(offset + 4, true);
-    offset += 8 + chunkSize + (chunkSize % 2);
-    if (offset > blob.size) return false;
-  }
-
+async function isValidOutput(blob: Blob, format: string, expectedWidth?: number, expectedHeight?: number) {
+  if (blob.type !== format || blob.size < 16) return false;
+  const bytes = new Uint8Array(await blob.arrayBuffer());
+  const validContainer = format === "image/webp"
+    ? isValidWebpContainer(bytes)
+    : format === "image/jpeg"
+      ? isValidJpegWithoutMetadata(bytes)
+      : format === "image/png"
+        ? isValidPngWithoutMetadata(bytes)
+        : false;
+  if (!validContainer) return false;
   try {
     const decoded = await createImageBitmap(blob);
-    const valid = decoded.width > 0 && decoded.height > 0;
+    const valid = decoded.width > 0 && decoded.height > 0 &&
+      (expectedWidth === undefined || decoded.width === expectedWidth) &&
+      (expectedHeight === undefined || decoded.height === expectedHeight);
     decoded.close();
     return valid;
   } catch {
     return false;
   }
+}
+
+function isValidWebpContainer(bytes: Uint8Array) {
+  if (bytes.length < 20 || ascii(bytes, 0, 4) !== "RIFF" || ascii(bytes, 8, 4) !== "WEBP") return false;
+  const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+  if (view.getUint32(4, true) + 8 !== bytes.length) return false;
+  let offset = 12;
+  while (offset + 8 <= bytes.length) {
+    const type = ascii(bytes, offset, 4);
+    if (type === "EXIF" || type === "XMP ") return false;
+    const size = view.getUint32(offset + 4, true);
+    offset += 8 + size + (size % 2);
+    if (offset > bytes.length) return false;
+  }
+  return offset === bytes.length;
+}
+
+function isValidJpegWithoutMetadata(bytes: Uint8Array) {
+  if (bytes.length < 4 || bytes[0] !== 0xff || bytes[1] !== 0xd8) return false;
+  let offset = 2;
+  while (offset + 4 <= bytes.length) {
+    if (bytes[offset] !== 0xff) return false;
+    const marker = bytes[offset + 1];
+    if (marker === 0xda) return offset + 2 < bytes.length;
+    if (marker === 0xd9) return true;
+    offset += 2;
+    if (marker >= 0xd0 && marker <= 0xd7) continue;
+    if (offset + 2 > bytes.length) return false;
+    const size = (bytes[offset] << 8) | bytes[offset + 1];
+    if (size < 2 || offset + size > bytes.length) return false;
+    // EXIF and XMP are carried in APP1 segments.
+    if (marker === 0xe1) return false;
+    offset += size;
+  }
+  return false;
+}
+
+function isValidPngWithoutMetadata(bytes: Uint8Array) {
+  if (bytes.length < 20 || ascii(bytes, 0, 8) !== "\x89PNG\r\n\x1a\n") return false;
+  const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+  let offset = 8;
+  let hasImageData = false;
+  while (offset + 12 <= bytes.length) {
+    const size = view.getUint32(offset);
+    const type = ascii(bytes, offset + 4, 4);
+    if (["eXIf", "tEXt", "zTXt", "iTXt"].includes(type)) return false;
+    if (type === "IDAT") hasImageData = true;
+    offset += 12 + size;
+    if (offset > bytes.length) return false;
+    if (type === "IEND") return hasImageData && offset === bytes.length;
+  }
+  return false;
+}
+
+function ascii(bytes: Uint8Array, offset: number, length: number) {
+  return String.fromCharCode(...bytes.subarray(offset, offset + length));
+}
+
+function extensionForMimeType(mimeType: string) {
+  const extension = getOptimizedImageExtension(mimeType);
+  if (!extension) throw new Error("Formato de salida no permitido.");
+  return extension;
+}
+
+function canvasBlob(canvas: HTMLCanvasElement, type: string, quality?: number) {
+  return new Promise<Blob>((resolve, reject) => {
+    canvas.toBlob((blob) => blob ? resolve(blob) : reject(new Error("No se pudo codificar la imagen.")), type, quality);
+  });
 }
 
 async function readImageDimensions(file: File) {

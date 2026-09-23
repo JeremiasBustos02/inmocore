@@ -56,7 +56,7 @@ const HEX_COLOR_PATTERN = /^#[0-9a-f]{6}$/i;
 const UUID_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const ASSET_PATH_PATTERN =
-  /^[0-9a-f-]{36}\/(logo|hero)\/[0-9a-f-]{36}\.webp$/i;
+  /^[0-9a-f-]{36}\/(logo|hero)\/[0-9a-f-]{36}\.(webp|jpg|png)$/i;
 
 function readOptionalText(formData: FormData, name: string, maxLength: number) {
   const value = formData.get(name);
@@ -136,6 +136,7 @@ export async function updateOrganizationAsset(
   organizationSlug: string,
   assetType: OrganizationAssetType,
   storagePath: string,
+  contentType: string,
 ) {
   const userId = await requireAuthenticatedUserId();
   const membership = await requireOrganizationMembership(userId, organizationSlug);
@@ -143,7 +144,15 @@ export async function updateOrganizationAsset(
   if (!membership || (membership.role !== "owner" && membership.role !== "admin")) {
     notFound();
   }
-  if (!UUID_PATTERN.test(membership.id) || !ASSET_PATH_PATTERN.test(storagePath)) {
+  const expectedExtension = ORGANIZATION_ASSET_EXTENSIONS[contentType as keyof typeof ORGANIZATION_ASSET_EXTENSIONS];
+  if (
+    !UUID_PATTERN.test(membership.id) ||
+    !ASSET_PATH_PATTERN.test(storagePath) ||
+    !expectedExtension ||
+    (assetType === "logo" && contentType === "image/jpeg") ||
+    (assetType === "hero" && contentType === "image/png") ||
+    !storagePath.toLowerCase().endsWith(`.${expectedExtension}`)
+  ) {
     return { ok: false, error: "La ruta del asset no es válida." } as const;
   }
 
@@ -170,7 +179,7 @@ export async function updateOrganizationAsset(
     storageError ||
     !uploadedFile ||
     !mimeType ||
-    !(mimeType in ORGANIZATION_ASSET_EXTENSIONS) ||
+    mimeType !== contentType ||
     fileSize === null ||
     fileSize > MAX_ORGANIZATION_ASSET_SIZE
   ) {

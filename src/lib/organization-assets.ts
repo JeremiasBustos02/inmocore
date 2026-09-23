@@ -4,6 +4,8 @@ export const MAX_ORGANIZATION_ASSET_SIZE = 2 * 1024 * 1024;
 
 export const ORGANIZATION_ASSET_EXTENSIONS = {
   "image/webp": "webp",
+  "image/jpeg": "jpg",
+  "image/png": "png",
 } as const;
 
 export type OrganizationAssetType = "logo" | "hero";

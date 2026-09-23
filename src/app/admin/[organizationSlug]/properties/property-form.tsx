@@ -34,6 +34,7 @@ import {
   MAX_IMAGE_INPUT_SIZE,
   MAX_IMAGE_PIXELS,
   PROPERTY_IMAGE_PRESET,
+  getOptimizedImageExtension,
   optimizeImageBatch,
   validateImageInput,
 } from "@/lib/image-optimization";
@@ -215,15 +216,24 @@ export function PropertyForm({
         setUploadedCount(completedCount);
         continue;
       }
-      const storagePath = `${createImageUpload.organizationId}/${propertyId}/${crypto.randomUUID()}.webp`;
+      const extension = getOptimizedImageExtension(file.type);
+      if (!extension) {
+        setFiles((current) => current.map((candidate) => candidate.id === item.id
+          ? { ...candidate, uploadError: "El formato optimizado no es compatible." }
+          : candidate));
+        completedCount += 1;
+        setUploadedCount(completedCount);
+        continue;
+      }
+      const storagePath = `${createImageUpload.organizationId}/${propertyId}/${crypto.randomUUID()}.${extension}`;
       try {
-        const uploaded = await supabase.storage.from(PROPERTY_IMAGES_BUCKET).upload(storagePath, file, { contentType: "image/webp", cacheControl: IMAGE_CACHE_CONTROL, upsert: false });
+        const uploaded = await supabase.storage.from(PROPERTY_IMAGES_BUCKET).upload(storagePath, file, { contentType: file.type, cacheControl: IMAGE_CACHE_CONTROL, upsert: false });
         if (uploaded.error) {
           setFiles((current) => current.map((candidate) => candidate.id === item.id
-            ? { ...candidate, uploadError: "No se pudo subir el WebP optimizado. Podés reintentar." }
+            ? { ...candidate, uploadError: "No se pudo subir la imagen optimizada. Podés reintentar." }
             : candidate));
         } else {
-          const registered = await registerPropertyImage(createImageUpload.organizationSlug, propertyId, storagePath);
+          const registered = await registerPropertyImage(createImageUpload.organizationSlug, propertyId, storagePath, file.type);
           if (registered.ok) { uploadedCount += 1; uploadedIds.add(item.id); }
           else {
             // Storage and SQL cannot share a transaction; remove an orphan if row registration fails.

@@ -23,6 +23,7 @@ import {
   MAX_IMAGE_INPUT_SIZE,
   MAX_IMAGE_PIXELS,
   PROPERTY_IMAGE_PRESET,
+  getOptimizedImageExtension,
   optimizeImageBatch,
   validateImageInput,
 } from "@/lib/image-optimization";
@@ -145,24 +146,31 @@ export function PropertyImages({
       for (const [index, item] of ready.entries()) {
         const file = item.optimized;
         if (!file) continue;
+        const extension = getOptimizedImageExtension(file.type);
+        if (!extension) {
+          setSelectedImages((current) => current.map((candidate) => candidate.id === item.id
+            ? { ...candidate, status: "error", error: "El formato optimizado no es compatible." }
+            : candidate));
+          continue;
+        }
         setUploadProgress(`Subiendo imágenes… ${index + 1} de ${ready.length}`);
-        const storagePath = `${organizationId}/${propertyId}/${crypto.randomUUID()}.webp`;
+        const storagePath = `${organizationId}/${propertyId}/${crypto.randomUUID()}.${extension}`;
         try {
           const { error: uploadError } = await supabase.storage
             .from(PROPERTY_IMAGES_BUCKET)
             .upload(storagePath, file, {
-              contentType: "image/webp",
+              contentType: file.type,
               cacheControl: IMAGE_CACHE_CONTROL,
               upsert: false,
             });
           if (uploadError) {
             setSelectedImages((current) => current.map((candidate) => candidate.id === item.id
-              ? { ...candidate, status: "error", error: "No se pudo subir el WebP optimizado. Podés reintentar." }
+              ? { ...candidate, status: "error", error: "No se pudo subir la imagen optimizada. Podés reintentar." }
               : candidate));
             continue;
           }
 
-          const registration = await registerPropertyImage(organizationSlug, propertyId, storagePath);
+          const registration = await registerPropertyImage(organizationSlug, propertyId, storagePath, file.type);
           if (!registration.ok) {
             await supabase.storage.from(PROPERTY_IMAGES_BUCKET).remove([storagePath]);
             setSelectedImages((current) => current.map((candidate) => candidate.id === item.id
@@ -266,8 +274,7 @@ export function PropertyImages({
       <div className="flex flex-col gap-1">
         <h2 className="text-xl font-semibold">Imágenes</h2>
         <p className="text-sm text-muted-foreground">
-          Hasta {MAX_PROPERTY_IMAGES} imágenes. Original JPEG, PNG o WebP de hasta {MAX_IMAGE_INPUT_SIZE / 1024 / 1024} MB y {MAX_IMAGE_PIXELS / 1_000_000} MP; la salida se guarda como WebP de hasta {MAX_PROPERTY_IMAGE_SIZE / 1024 / 1024} MB.
-          La primera imagen es la portada.
+          Hasta {MAX_PROPERTY_IMAGES} imágenes. Original JPEG, PNG o WebP de hasta {MAX_IMAGE_INPUT_SIZE / 1024 / 1024} MB y {MAX_IMAGE_PIXELS / 1_000_000} MP; salida optimizada WebP o JPEG hasta {MAX_PROPERTY_IMAGE_SIZE / 1024 / 1024} MB. La primera imagen es la portada.
         </p>
       </div>
 
@@ -275,7 +282,7 @@ export function PropertyImages({
         <AdminFilePicker
           accept="image/jpeg,image/png,image/webp"
           files={selectedImages.map((image) => image.original)}
-          hint={`JPEG, PNG o WebP · original hasta ${MAX_IMAGE_INPUT_SIZE / 1024 / 1024} MB y ${MAX_IMAGE_PIXELS / 1_000_000} MP · salida WebP hasta ${MAX_PROPERTY_IMAGE_SIZE / 1024 / 1024} MB · hasta ${MAX_PROPERTY_IMAGES}`}
+          hint={`JPEG, PNG o WebP · original hasta ${MAX_IMAGE_INPUT_SIZE / 1024 / 1024} MB y ${MAX_IMAGE_PIXELS / 1_000_000} MP · salida WebP o JPEG hasta ${MAX_PROPERTY_IMAGE_SIZE / 1024 / 1024} MB · hasta ${MAX_PROPERTY_IMAGES}`}
           inputRef={inputRef}
           label="Seleccionar imágenes"
           multiple
