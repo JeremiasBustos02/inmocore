@@ -4,7 +4,7 @@ export const IMAGE_PROCESSING_CONCURRENCY = 2;
 // UUID object paths are immutable; callers use a one-year Storage cache lifetime.
 export const IMAGE_CACHE_CONTROL = "31536000";
 // Inspectable in development console to distinguish a current bundle from a cached one.
-export const IMAGE_PIPELINE_VERSION = "ios-html-image-decode-3";
+export const IMAGE_PIPELINE_VERSION = "ios-output-diagnostics-4";
 
 type ImageErrorCode =
   | "IMG_DECODE_FAILED"
@@ -12,7 +12,12 @@ type ImageErrorCode =
   | "IMG_WEBP_FAILED"
   | "IMG_JPEG_FAILED"
   | "IMG_PNG_FAILED"
-  | "IMG_OUTPUT_INVALID"
+  | "IMG_OUTPUT_EMPTY"
+  | "IMG_OUTPUT_MIME_MISMATCH"
+  | "IMG_OUTPUT_SIGNATURE_INVALID"
+  | "IMG_OUTPUT_DECODE_FAILED"
+  | "IMG_OUTPUT_DIMENSIONS_INVALID"
+  | "IMG_OUTPUT_METADATA_FOUND"
   | "IMG_SIZE_LIMIT";
 
 class ImagePipelineError extends Error {
@@ -180,16 +185,16 @@ export async function optimizeImage(
               if (format === "image/webp") trace.webpAttempted = true;
               const blob = await rasterize(decoded.source, dimension.width, dimension.height, format, quality, options.webpEncoder);
               if (format === "image/webp") trace.webpBlobType = blob?.type ?? null;
-              if (!blob || blob.type !== format) throw new ImagePipelineError(encodeErrorCode(format));
+              if (!blob) throw new ImagePipelineError(encodeErrorCode(format));
               if (blob.size > preset.hardLimitBytes) {
                 sizeLimitReached = true;
                 continue;
               }
-              const valid = await isValidOutput(blob, format, dimension.width, dimension.height);
-              if (format === "image/webp") trace.webpValid = valid;
-              if (!valid) {
+              const validationError = await validateOptimizedOutput(blob, format, dimension.width, dimension.height);
+              if (format === "image/webp") trace.webpValid = validationError === null;
+              if (validationError) {
                 if (format === "image/webp") break;
-                throw new ImagePipelineError("IMG_OUTPUT_INVALID");
+                throw new ImagePipelineError(validationError);
               }
 
               const optimizedFile = new File([blob], `optimized.${extensionForMimeType(format)}`, {
@@ -218,7 +223,7 @@ export async function optimizeImage(
         }
       }
 
-      throw new ImagePipelineError(sizeLimitReached ? "IMG_SIZE_LIMIT" : "IMG_OUTPUT_INVALID");
+      throw new ImagePipelineError(sizeLimitReached ? "IMG_SIZE_LIMIT" : "IMG_OUTPUT_SIGNATURE_INVALID");
     } finally {
       if (process.env.NODE_ENV === "development") {
         console.info("[image-optimization]", { version: IMAGE_PIPELINE_VERSION, decoder: decoded.method, ...trace });
@@ -374,7 +379,7 @@ async function detectWebpEncodingSupport() {
     canvas.width = 1;
     canvas.height = 1;
     const blob = await canvasBlob(canvas, "image/webp", 0.8);
-    return await isValidOutput(blob, "image/webp");
+    return blob.type === "image/webp" && await validateOptimizedOutput(blob, "image/webp") === null;
   } catch {
     return false;
   }
@@ -424,79 +429,135 @@ async function rasterize(
   }
 }
 
-async function isValidOutput(blob: Blob, format: string, expectedWidth?: number, expectedHeight?: number) {
+export async function validateOptimizedOutput(
+  blob: Blob,
+  requestedFormat: string,
+  expectedWidth?: number,
+  expectedHeight?: number,
+): Promise<ImageErrorCode | null> {
+  let bytes = new Uint8Array();
+  let actualWidth: number | null = null;
+  let actualHeight: number | null = null;
+  const report = (code: ImageErrorCode | null) => {
+    // Headers and dimensions only; never log the filename, image payload or source metadata.
+    if (code || process.env.NODE_ENV === "development") {
+      console.info("[image-output]", {
+        requestedFormat,
+        blobType: blob.type,
+        blobSize: blob.size,
+        first16Hex: Array.from(bytes.subarray(0, 16), (byte) => byte.toString(16).padStart(2, "0")).join(" "),
+        detectedFormat: detectImageFormat(bytes),
+        expectedWidth,
+        expectedHeight,
+        actualWidth,
+        actualHeight,
+        code,
+      });
+    }
+    return code;
+  };
+
+  if (blob.size === 0) return report("IMG_OUTPUT_EMPTY");
   try {
-    if (blob.type !== format || blob.size < 16) return false;
-    const bytes = new Uint8Array(await blob.arrayBuffer());
-    const validContainer = format === "image/webp"
-      ? isValidWebpContainer(bytes)
-      : format === "image/jpeg"
-        ? isValidJpegWithoutMetadata(bytes)
-        : format === "image/png"
-          ? isValidPngWithoutMetadata(bytes)
-          : false;
-    if (!validContainer) return false;
-    const decoded = await decodeImage(blob);
-    const valid = decoded.width > 0 && decoded.height > 0 &&
-      (expectedWidth === undefined || decoded.width === expectedWidth) &&
-      (expectedHeight === undefined || decoded.height === expectedHeight);
-    decoded.release();
-    return valid;
+    bytes = new Uint8Array(await blob.arrayBuffer());
   } catch {
-    return false;
+    return report("IMG_OUTPUT_DECODE_FAILED");
   }
+  const detectedFormat = detectImageFormat(bytes);
+  if (blob.type !== requestedFormat && !(blob.type === "" && requestedFormat === "image/jpeg" && detectedFormat === "image/jpeg")) {
+    return report("IMG_OUTPUT_MIME_MISMATCH");
+  }
+  if (detectedFormat !== requestedFormat) return report("IMG_OUTPUT_SIGNATURE_INVALID");
+  const containerError = requestedFormat === "image/webp"
+    ? inspectWebp(bytes)
+    : requestedFormat === "image/jpeg"
+      ? inspectJpeg(bytes)
+      : requestedFormat === "image/png"
+        ? inspectPng(bytes)
+        : "IMG_OUTPUT_SIGNATURE_INVALID";
+  if (containerError) return report(containerError);
+
+  try {
+    // Same decoder as input: ImageBitmap first, HTMLImageElement fallback.
+    const decoded = await decodeImage(blob);
+    actualWidth = decoded.width;
+    actualHeight = decoded.height;
+    decoded.release();
+  } catch {
+    return report("IMG_OUTPUT_DECODE_FAILED");
+  }
+  // Freshly rasterized output has no EXIF: compare against the canvas dimensions,
+  // not the original file's pre-orientation dimensions.
+  if (!actualWidth || !actualHeight ||
+    (expectedWidth !== undefined && actualWidth !== expectedWidth) ||
+    (expectedHeight !== undefined && actualHeight !== expectedHeight)) {
+    return report("IMG_OUTPUT_DIMENSIONS_INVALID");
+  }
+  return report(null);
 }
 
-function isValidWebpContainer(bytes: Uint8Array) {
-  if (bytes.length < 20 || ascii(bytes, 0, 4) !== "RIFF" || ascii(bytes, 8, 4) !== "WEBP") return false;
+function detectImageFormat(bytes: Uint8Array) {
+  if (bytes.length >= 3 && bytes[0] === 0xff && bytes[1] === 0xd8 && bytes[2] === 0xff) return "image/jpeg";
+  if (bytes.length >= 8 && ascii(bytes, 0, 8) === "\x89PNG\r\n\x1a\n") return "image/png";
+  if (bytes.length >= 12 && ascii(bytes, 0, 4) === "RIFF" && ascii(bytes, 8, 4) === "WEBP") return "image/webp";
+  return null;
+}
+
+function inspectWebp(bytes: Uint8Array): ImageErrorCode | null {
+  if (bytes.length < 20) return "IMG_OUTPUT_SIGNATURE_INVALID";
   const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
-  if (view.getUint32(4, true) + 8 !== bytes.length) return false;
+  if (view.getUint32(4, true) + 8 !== bytes.length) return "IMG_OUTPUT_SIGNATURE_INVALID";
   let offset = 12;
   while (offset + 8 <= bytes.length) {
     const type = ascii(bytes, offset, 4);
-    if (type === "EXIF" || type === "XMP ") return false;
+    if (type === "EXIF" || type === "XMP ") return "IMG_OUTPUT_METADATA_FOUND";
     const size = view.getUint32(offset + 4, true);
     offset += 8 + size + (size % 2);
-    if (offset > bytes.length) return false;
+    if (offset > bytes.length) return "IMG_OUTPUT_SIGNATURE_INVALID";
   }
-  return offset === bytes.length;
+  return offset === bytes.length ? null : "IMG_OUTPUT_SIGNATURE_INVALID";
 }
 
-function isValidJpegWithoutMetadata(bytes: Uint8Array) {
-  if (bytes.length < 4 || bytes[0] !== 0xff || bytes[1] !== 0xd8) return false;
+function inspectJpeg(bytes: Uint8Array): ImageErrorCode | null {
   let offset = 2;
   while (offset + 4 <= bytes.length) {
-    if (bytes[offset] !== 0xff) return false;
+    if (bytes[offset] !== 0xff) return "IMG_OUTPUT_SIGNATURE_INVALID";
     const marker = bytes[offset + 1];
-    if (marker === 0xda) return offset + 2 < bytes.length;
-    if (marker === 0xd9) return true;
+    if (marker === 0xda) return offset + 2 < bytes.length ? null : "IMG_OUTPUT_SIGNATURE_INVALID";
+    if (marker === 0xd9) return null;
     offset += 2;
     if (marker >= 0xd0 && marker <= 0xd7) continue;
-    if (offset + 2 > bytes.length) return false;
+    if (offset + 2 > bytes.length) return "IMG_OUTPUT_SIGNATURE_INVALID";
     const size = (bytes[offset] << 8) | bytes[offset + 1];
-    if (size < 2 || offset + size > bytes.length) return false;
-    // EXIF and XMP are carried in APP1 segments.
-    if (marker === 0xe1) return false;
+    if (size < 2 || offset + size > bytes.length) return "IMG_OUTPUT_SIGNATURE_INVALID";
+    if (marker === 0xe1) {
+      const payload = offset + 2;
+      if (ascii(bytes, payload, 6) === "Exif\0\0" ||
+        ascii(bytes, payload, 28) === "http://ns.adobe.com/xap/1.0/" ||
+        ascii(bytes, payload, 34) === "http://ns.adobe.com/xmp/extension/") {
+        return "IMG_OUTPUT_METADATA_FOUND";
+      }
+    }
     offset += size;
   }
-  return false;
+  return "IMG_OUTPUT_SIGNATURE_INVALID";
 }
 
-function isValidPngWithoutMetadata(bytes: Uint8Array) {
-  if (bytes.length < 20 || ascii(bytes, 0, 8) !== "\x89PNG\r\n\x1a\n") return false;
+function inspectPng(bytes: Uint8Array): ImageErrorCode | null {
+  if (bytes.length < 20) return "IMG_OUTPUT_SIGNATURE_INVALID";
   const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
   let offset = 8;
   let hasImageData = false;
   while (offset + 12 <= bytes.length) {
     const size = view.getUint32(offset);
     const type = ascii(bytes, offset + 4, 4);
-    if (["eXIf", "tEXt", "zTXt", "iTXt"].includes(type)) return false;
+    if (["eXIf", "tEXt", "zTXt", "iTXt"].includes(type)) return "IMG_OUTPUT_METADATA_FOUND";
     if (type === "IDAT") hasImageData = true;
     offset += 12 + size;
-    if (offset > bytes.length) return false;
-    if (type === "IEND") return hasImageData && offset === bytes.length;
+    if (offset > bytes.length) return "IMG_OUTPUT_SIGNATURE_INVALID";
+    if (type === "IEND") return hasImageData && offset === bytes.length ? null : "IMG_OUTPUT_SIGNATURE_INVALID";
   }
-  return false;
+  return "IMG_OUTPUT_SIGNATURE_INVALID";
 }
 
 function ascii(bytes: Uint8Array, offset: number, length: number) {

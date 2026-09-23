@@ -6,6 +6,7 @@ import {
   optimizeImage,
   optimizeImageBatch,
   PROPERTY_IMAGE_PRESET,
+  validateOptimizedOutput,
   validateImageInput,
   type ImagePreset,
 } from "@/lib/image-optimization";
@@ -128,6 +129,22 @@ export async function runImageOptimizationCheck() {
   assert(fallbackPropertyBitmap.width === fallbackProperty.outputWidth && fallbackPropertyBitmap.height === fallbackProperty.outputHeight, "Las dimensiones del JPEG fallback no son reales.");
   fallbackPropertyBitmap.close();
 
+  const cleanJpegBytes = new Uint8Array(await fallbackProperty.file.arrayBuffer());
+  const jfif = new Uint8Array([0x4a, 0x46, 0x49, 0x46, 0, 1, 1, 0, 0, 1, 0, 1, 0, 0]);
+  const withJfif = prependJpegSegment(cleanJpegBytes, 0xe0, jfif);
+  const withoutJfif = removeJfifSegments(withJfif);
+  const withOtherApp1 = prependJpegSegment(withoutJfif, 0xe1, new TextEncoder().encode("Unrelated APP1 data"));
+  const withOtherApp2 = prependJpegSegment(withOtherApp1, 0xe2, new TextEncoder().encode("Unrelated APP2 data"));
+  for (const [label, bytes] of [["APP0/JFIF", withJfif], ["sin JFIF", withoutJfif], ["APP1/APP2 legítimos", withOtherApp2]] as const) {
+    assert(await validateOptimizedOutput(new Blob([new Uint8Array(bytes)], { type: "image/jpeg" }), "image/jpeg", 300, 600) === null, `JPEG ${label} válido fue rechazado.`);
+  }
+  assert(await validateOptimizedOutput(new Blob([new Uint8Array(withoutJfif)]), "image/jpeg", 300, 600) === null, "JPEG válido sin MIME no se normalizó.");
+  assert(await validateOptimizedOutput(orientationFixture, "image/jpeg") === "IMG_OUTPUT_METADATA_FOUND", "EXIF/GPS/XMP no fueron detectados.");
+  assert(await validateOptimizedOutput(new Blob([]), "image/jpeg") === "IMG_OUTPUT_EMPTY", "Blob vacío no fue identificado.");
+  assert(await validateOptimizedOutput(new Blob([new Uint8Array(cleanJpegBytes)], { type: "image/png" }), "image/jpeg") === "IMG_OUTPUT_MIME_MISMATCH", "MIME distinto no fue rechazado.");
+  assert(await validateOptimizedOutput(new Blob(["invalid jpeg"], { type: "image/jpeg" }), "image/jpeg") === "IMG_OUTPUT_SIGNATURE_INVALID", "Firma inválida no fue rechazada.");
+  assert(await validateOptimizedOutput(fallbackProperty.file, "image/jpeg", 600, 300) === "IMG_OUTPUT_DIMENSIONS_INVALID", "Dimensiones invertidas no fueron distinguidas.");
+
   const failedWebpCases = [
     { name: "A: null", encode: async () => null },
     { name: "B: PNG en vez de WebP", encode: async () => new Blob([await transparentPng.arrayBuffer()], { type: "image/png" }) },
@@ -184,6 +201,7 @@ export async function runImageOptimizationCheck() {
   const webpChunks = orientationResult.file.type === "image/webp" ? await readWebpChunks(orientationResult.file) : [];
   return {
     pipelineVersion: IMAGE_PIPELINE_VERSION,
+    jpegOutputVariants: { jfif: "PASS", noJfif: "PASS", otherAppSegments: "PASS", emptyMimeWithJpegBytes: "PASS", exifRejected: "PASS" },
     htmlImageDecoder: { jpeg: htmlJpegResult.file.type, screenshotPng: htmlPngResult.file.type, objectUrlsReleased: activeObjectUrls.size === 0 },
     forcedWebpFailures: forcedFailures,
     orientationExifGps: {
@@ -368,6 +386,37 @@ async function bytesEqual(first: Blob, second: Blob) {
   const left = new Uint8Array(firstBytes);
   const right = new Uint8Array(secondBytes);
   return left.every((byte, index) => byte === right[index]);
+}
+
+function prependJpegSegment(jpeg: Uint8Array, marker: number, payload: Uint8Array) {
+  const segment = new Uint8Array(payload.length + 4);
+  segment.set([0xff, marker, (payload.length + 2) >> 8, (payload.length + 2) & 0xff]);
+  segment.set(payload, 4);
+  const output = new Uint8Array(jpeg.length + segment.length);
+  output.set(jpeg.subarray(0, 2));
+  output.set(segment, 2);
+  output.set(jpeg.subarray(2), 2 + segment.length);
+  return output;
+}
+
+function removeJfifSegments(jpeg: Uint8Array) {
+  const segments: Uint8Array[] = [jpeg.subarray(0, 2)];
+  let offset = 2;
+  while (offset + 4 <= jpeg.length && jpeg[offset] === 0xff && jpeg[offset + 1] !== 0xda) {
+    const size = (jpeg[offset + 2] << 8) | jpeg[offset + 3];
+    const end = offset + 2 + size;
+    if (size < 2 || end > jpeg.length) throw new Error("JPEG fixture inválido.");
+    if (jpeg[offset + 1] !== 0xe0 || !matchesAscii(jpeg, offset + 4, "JFIF\0")) segments.push(jpeg.subarray(offset, end));
+    offset = end;
+  }
+  segments.push(jpeg.subarray(offset));
+  const output = new Uint8Array(segments.reduce((length, segment) => length + segment.length, 0));
+  let position = 0;
+  for (const segment of segments) {
+    output.set(segment, position);
+    position += segment.length;
+  }
+  return output;
 }
 
 function containsAscii(bytes: Uint8Array, value: string) {
