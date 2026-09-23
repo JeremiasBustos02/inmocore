@@ -3,6 +3,8 @@ export const MAX_IMAGE_PIXELS = 24_000_000;
 export const IMAGE_PROCESSING_CONCURRENCY = 2;
 // UUID object paths are immutable; callers use a one-year Storage cache lifetime.
 export const IMAGE_CACHE_CONTROL = "31536000";
+// Inspectable in development console to distinguish a current bundle from a cached one.
+export const IMAGE_PIPELINE_VERSION = "ios-encoder-fallback-2";
 
 export type ImagePreset = {
   maxDimension: number;
@@ -58,6 +60,8 @@ export type ImageOptimizationResult = {
 
 type OptimizationOptions = {
   webpEncodingSupported?: boolean;
+  // Fixture hook: replaces only WebP canvas encoding, leaving the real JPEG/PNG fallback intact.
+  webpEncoder?: (canvas: HTMLCanvasElement, quality: number) => Promise<Blob | null>;
 };
 
 export type ImageBatchResult =
@@ -122,57 +126,79 @@ export async function optimizeImage(
     const formats = supportsWebp
       ? ["image/webp", preset.fallbackFormat] as const
       : [preset.fallbackFormat] as const;
+    const trace: {
+      inputType: string;
+      supportsWebP: boolean;
+      webpAttempted: boolean;
+      webpBlobType: string | null;
+      webpValid: boolean;
+      fallbackAttempted: boolean;
+      fallbackType: string;
+      finalType: string | null;
+    } = {
+      inputType: file.type,
+      supportsWebP: supportsWebp,
+      webpAttempted: false,
+      webpBlobType: null,
+      webpValid: false,
+      fallbackAttempted: false,
+      fallbackType: preset.fallbackFormat,
+      finalType: null,
+    };
     let attempts = 0;
 
-    for (const format of formats) {
-      for (const dimension of dimensions) {
-        const qualitySteps = format === "image/png" ? [1] : QUALITY_STEPS;
-        for (const qualityScale of qualitySteps) {
-          attempts += 1;
-          const quality = Number((preset.initialQuality * qualityScale).toFixed(3));
-          let blob: Blob;
-          try {
-            blob = await rasterize(bitmap, dimension.width, dimension.height, format, quality);
-          } catch {
-            // A browser can pass the capability probe yet fail a real encode; try the fallback.
-            break;
+    try {
+      for (const format of formats) {
+        if (format !== "image/webp") trace.fallbackAttempted = true;
+        for (const dimension of dimensions) {
+          const qualitySteps = format === "image/png" ? [1] : QUALITY_STEPS;
+          for (const qualityScale of qualitySteps) {
+            attempts += 1;
+            const quality = Number((preset.initialQuality * qualityScale).toFixed(3));
+            try {
+              if (format === "image/webp") trace.webpAttempted = true;
+              const blob = await rasterize(bitmap, dimension.width, dimension.height, format, quality, options.webpEncoder);
+              if (format === "image/webp") trace.webpBlobType = blob?.type ?? null;
+              if (!blob || blob.type !== format) throw new Error("No pudimos procesar esta imagen.");
+              if (blob.size > preset.hardLimitBytes) continue;
+              const valid = await isValidOutput(blob, format, dimension.width, dimension.height);
+              if (format === "image/webp") trace.webpValid = valid;
+              if (!valid) {
+                if (format === "image/webp") break;
+                throw new Error("No pudimos procesar esta imagen.");
+              }
+
+              const optimizedFile = new File([blob], `optimized.${extensionForMimeType(format)}`, {
+                type: format,
+                lastModified: Date.now(),
+              });
+              trace.finalType = format;
+              return {
+                file: optimizedFile,
+                inputWidth,
+                inputHeight,
+                outputWidth: dimension.width,
+                outputHeight: dimension.height,
+                originalBytes: file.size,
+                outputBytes: blob.size,
+                quality,
+                attempts,
+              } satisfies ImageOptimizationResult;
+            } catch {
+              // Capability can pass while a real iPhone image fails at encode, validation or file creation.
+              if (format === "image/webp") break;
+              throw new Error("No pudimos procesar esta imagen.");
+            }
           }
-          if (blob.size > preset.hardLimitBytes) continue;
-          if (!(await isValidOutput(blob, format, dimension.width, dimension.height))) break;
-
-          const extension = extensionForMimeType(format);
-          const optimizedFile = new File([blob], `optimized.${extension}`, {
-            type: format,
-            lastModified: Date.now(),
-          });
-          const result = {
-            file: optimizedFile,
-            inputWidth,
-            inputHeight,
-            outputWidth: dimension.width,
-            outputHeight: dimension.height,
-            originalBytes: file.size,
-            outputBytes: blob.size,
-            quality,
-            attempts,
-          } satisfies ImageOptimizationResult;
-
-          if (process.env.NODE_ENV === "development") {
-            const reduction = Math.max(0, (1 - blob.size / file.size) * 100);
-            console.info("[image-optimization]", {
-              input: `${file.size} bytes, ${inputWidth}x${inputHeight}, ${file.type}`,
-              output: `${blob.size} bytes, ${dimension.width}x${dimension.height}, ${format}`,
-              reduction: `${reduction.toFixed(1)}%`,
-              quality,
-            });
-          }
-
-          return result;
         }
       }
-    }
 
-    throw new Error("No pudimos optimizar esta imagen dentro del límite permitido.");
+      throw new Error("No pudimos optimizar esta imagen dentro del límite permitido.");
+    } finally {
+      if (process.env.NODE_ENV === "development") {
+        console.info("[image-optimization]", { version: IMAGE_PIPELINE_VERSION, ...trace });
+      }
+    }
   } finally {
     bitmap.close();
   }
@@ -259,32 +285,29 @@ async function detectWebpEncodingSupport() {
   }
 }
 
-function rasterize(bitmap: ImageBitmap, width: number, height: number, format: string, quality: number) {
-  return new Promise<Blob>((resolve, reject) => {
-    const canvas = document.createElement("canvas");
-    canvas.width = width;
-    canvas.height = height;
+async function rasterize(
+  bitmap: ImageBitmap,
+  width: number,
+  height: number,
+  format: string,
+  quality: number,
+  webpEncoder?: (canvas: HTMLCanvasElement, quality: number) => Promise<Blob | null>,
+) {
+  const canvas = document.createElement("canvas");
+  canvas.width = width;
+  canvas.height = height;
+  try {
     const context = canvas.getContext("2d", { alpha: true });
-    if (!context) {
-      reject(new Error("Este navegador no permite procesar imágenes."));
-      return;
-    }
-
+    if (!context) throw new Error("No pudimos procesar esta imagen.");
     context.drawImage(bitmap, 0, 0, width, height);
-    canvas.toBlob(
-      (blob) => {
-        canvas.width = 0;
-        canvas.height = 0;
-        if (!blob || blob.type !== format) {
-          reject(new Error("No se pudo codificar la imagen procesada."));
-          return;
-        }
-        resolve(blob);
-      },
-      format,
-      format === "image/png" ? undefined : quality,
-    );
-  });
+    const blob = format === "image/webp" && webpEncoder
+      ? await webpEncoder(canvas, quality)
+      : await canvasBlob(canvas, format, format === "image/png" ? undefined : quality);
+    return blob;
+  } finally {
+    canvas.width = 0;
+    canvas.height = 0;
+  }
 }
 
 async function isValidOutput(blob: Blob, format: string, expectedWidth?: number, expectedHeight?: number) {

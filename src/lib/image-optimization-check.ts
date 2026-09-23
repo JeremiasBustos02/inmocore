@@ -1,6 +1,7 @@
 import {
   getImageProcessingConcurrency,
   HERO_IMAGE_PRESET,
+  IMAGE_PIPELINE_VERSION,
   LOGO_IMAGE_PRESET,
   optimizeImage,
   optimizeImageBatch,
@@ -96,6 +97,26 @@ export async function runImageOptimizationCheck() {
   assert(fallbackPropertyBitmap.width === fallbackProperty.outputWidth && fallbackPropertyBitmap.height === fallbackProperty.outputHeight, "Las dimensiones del JPEG fallback no son reales.");
   fallbackPropertyBitmap.close();
 
+  const failedWebpCases = [
+    { name: "A: null", encode: async () => null },
+    { name: "B: PNG en vez de WebP", encode: async () => new Blob([await transparentPng.arrayBuffer()], { type: "image/png" }) },
+    { name: "C: RIFF inválido", encode: async () => new Blob(["not-a-riff-webp-image"], { type: "image/webp" }) },
+  ];
+  const forcedFailures: string[] = [];
+  for (const testCase of failedWebpCases) {
+    const result = await optimizeImage(orientationFixture, PROPERTY_IMAGE_PRESET, {
+      webpEncodingSupported: true,
+      webpEncoder: testCase.encode,
+    });
+    assert(result.file.type === "image/jpeg" && result.file.name.endsWith(".jpg"), `${testCase.name}: WebP fallido no activó JPEG.`);
+    assert(result.outputWidth === 300 && result.outputHeight === 600 && result.outputBytes <= PROPERTY_IMAGE_PRESET.hardLimitBytes, `${testCase.name}: dimensiones o límite inválidos.`);
+    const metadata = await readJpegMetadata(result.file);
+    assert(metadata.orientation === null && metadata.gpsTags.length === 0, `${testCase.name}: EXIF/GPS no fue eliminado.`);
+    assert(!containsAscii(new Uint8Array(await result.file.arrayBuffer()), "http://ns.adobe.com/xap/1.0/"), `${testCase.name}: XMP no fue eliminado.`);
+    forcedFailures.push(`${testCase.name} → JPEG`);
+  }
+  forcedFailures.push("D: capability false → JPEG");
+
   const fallbackHero = await optimizeImage(noisyJpeg, HERO_IMAGE_PRESET, { webpEncodingSupported: false });
   assert(fallbackHero.file.type === "image/jpeg" && fallbackHero.outputBytes <= HERO_IMAGE_PRESET.hardLimitBytes, "El fallback de Hero no produjo JPEG bajo el hard cap.");
   assert(fallbackHero.file.name.endsWith(".jpg") && !(await bytesEqual(fallbackHero.file, noisyJpeg)), "El fallback de Hero no fue re-encodeado como JPEG.");
@@ -112,6 +133,16 @@ export async function runImageOptimizationCheck() {
   const fallbackAlpha = readAlphaPixels(fallbackLogoBitmap, 2, 2, 80, 50);
   fallbackLogoBitmap.close();
   assert(fallbackAlpha.transparent === 0 && fallbackAlpha.opaque > 240, "El PNG fallback perdió el canal alpha.");
+  const logoWebpFailure = await optimizeImage(transparentPng, LOGO_IMAGE_PRESET, {
+    webpEncodingSupported: true,
+    webpEncoder: async () => null,
+  });
+  assert(logoWebpFailure.file.type === "image/png", "WebP fallido no activó PNG en logo.");
+  const heroWebpFailure = await optimizeImage(smallPng, HERO_IMAGE_PRESET, {
+    webpEncodingSupported: true,
+    webpEncoder: async () => null,
+  });
+  assert(heroWebpFailure.file.type === "image/jpeg", "WebP fallido no activó JPEG en Hero.");
 
   const batch = await optimizeImageBatch([smallPng, corruptFile, transparentPng], PROPERTY_IMAGE_PRESET);
   assert(batch.length === 3 && batch[0].ok && !batch[1].ok && batch[2].ok, "Un archivo fallido interrumpió o desordenó el lote.");
@@ -121,6 +152,8 @@ export async function runImageOptimizationCheck() {
 
   const webpChunks = orientationResult.file.type === "image/webp" ? await readWebpChunks(orientationResult.file) : [];
   return {
+    pipelineVersion: IMAGE_PIPELINE_VERSION,
+    forcedWebpFailures: forcedFailures,
     orientationExifGps: {
       originalBytes: orientationFixture.size,
       originalDimensions: "600x300; Orientation=6; GPS IFD tags 1-4 present",
