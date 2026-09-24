@@ -288,21 +288,21 @@ export default async function PublicHomePage({ params }: PublicHomePageProps) {
           <div className="border-t border-border bg-muted">
             {hasAbout ? (
               <PublicReveal as="section" aria-labelledby="about-title" className="scroll-mt-6" id="estudio">
-                <div className={`mx-auto grid w-full max-w-[1440px] gap-8 px-5 pb-16 pt-16 sm:px-8 sm:pb-20 sm:pt-20 md:items-center md:gap-12 lg:gap-20 lg:px-8 lg:pb-24 lg:pt-24 ${aboutImageUrl ? "md:grid-cols-[minmax(0,43fr)_minmax(0,57fr)]" : ""}`}>
+                <div className={`mx-auto grid w-full max-w-[1440px] gap-8 px-5 pb-16 pt-16 sm:px-8 sm:pb-20 sm:pt-20 md:items-center md:gap-10 md:pb-12 md:pt-12 lg:gap-16 lg:px-8 lg:pb-14 lg:pt-14 ${aboutImageUrl ? "md:grid-cols-[minmax(0,380px)_minmax(0,1fr)]" : ""}`}>
                   {aboutImageUrl ? (
-                    <div className="relative aspect-[4/5] w-full max-w-sm overflow-hidden bg-border md:max-w-none">
+                    <div className="relative aspect-[4/5] w-full max-w-sm overflow-hidden bg-border md:max-w-[380px]">
                       <Image
                         alt={organization.aboutTitle?.trim() ? `${organization.aboutTitle.trim()} - ${organization.name}` : organization.name}
                         className="object-cover"
                         fill
-                        sizes="(min-width: 1440px) 540px, (min-width: 768px) 40vw, (min-width: 640px) 384px, calc(100vw - 40px)"
+                        sizes="(min-width: 768px) 380px, (min-width: 640px) 384px, calc(100vw - 40px)"
                         src={aboutImageUrl}
                       />
                     </div>
                   ) : null}
                   <div className="min-w-0 max-w-2xl">
                     {organization.aboutEyebrow?.trim() ? <p className="text-xs font-semibold tracking-[0.22em] text-primary/70">{organization.aboutEyebrow}</p> : null}
-                    <h2 className="mt-5 break-words text-balance text-[clamp(2rem,4vw,4rem)] font-semibold leading-[1.08] tracking-[-0.045em]" id="about-title">{organization.aboutTitle?.trim() || organization.name}</h2>
+                    <h2 className="mt-5 break-words text-balance text-[clamp(2rem,3.5vw,3.5rem)] font-semibold leading-[1.08] tracking-[-0.045em]" id="about-title">{organization.aboutTitle?.trim() || organization.name}</h2>
                     {organization.aboutDescription?.trim() ? <p className="mt-7 whitespace-pre-line break-words text-base leading-8 text-foreground/75 sm:text-lg sm:leading-9">{organization.aboutDescription}</p> : null}
                     {organization.whatsappPhone ? (
                       <a className="public-link mt-8 inline-flex w-fit items-center gap-2 text-sm font-semibold focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-primary" href={`https://wa.me/${organization.whatsappPhone}`} rel="noopener noreferrer" target="_blank">
