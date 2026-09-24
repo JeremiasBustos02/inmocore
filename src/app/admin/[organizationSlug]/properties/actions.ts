@@ -390,8 +390,8 @@ export async function permanentlyDeleteProperty(
   const propertiesPathname = propertiesPath(organizationSlug);
   revalidatePath(propertiesPathname);
   revalidatePath(`/${encodeURIComponent(organizationSlug)}`);
-  revalidatePath(`/${encodeURIComponent(organizationSlug)}/properties`);
-  revalidatePath(`/${encodeURIComponent(organizationSlug)}/properties/${encodeURIComponent(propertyId)}`);
+  revalidatePath(`/${encodeURIComponent(organizationSlug)}/propiedades`);
+  revalidatePath(`/${encodeURIComponent(organizationSlug)}/propiedades/${encodeURIComponent(propertyId)}`);
   revalidatePath("/sitemap.xml");
 
   return { ok: true as const, storageCleanupPending: pendingStoragePaths.length > 0 };

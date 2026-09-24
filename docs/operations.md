@@ -17,7 +17,7 @@ No crear SQL de schema manualmente ni agregar entradas a `_journal.json` a mano.
 
 Requeridas: `DATABASE_URL`, `DIRECT_DATABASE_URL` (migraciones y backup), `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`.
 
-Opcionales: `NEXT_PUBLIC_SITE_URL` (origen de la plataforma para organizaciones sin dominio propio, sitemap y robots), `NOMINATIM_BASE_URL` (instancia de geocodificación; usa el servicio público de OpenStreetMap por defecto), `SUPABASE_INVITE_REDIRECT_URL` (redirección de invitaciones), `SUPABASE_SECRET_KEY` (sólo para `pnpm client:onboard`, `pnpm client:add-member` y el provider backoffice, nunca para el navegador), `SUPABASE_MEMBER_PASSWORD` (sólo localmente con `client:add-member --mode create`, nunca commitearla) y `PLATFORM_ADMIN_USER_IDS` (IDs de usuarios Supabase autorizados al provider backoffice, separados por comas o espacios).
+Opcionales: `NEXT_PUBLIC_SITE_URL` (origen público de la plataforma para organizaciones sin dominio propio, sitemap y robots; en deployment se configura como `https://inmocore-coral.vercel.app`), `NOMINATIM_BASE_URL` (instancia de geocodificación; usa el servicio público de OpenStreetMap por defecto), `SUPABASE_INVITE_REDIRECT_URL` (redirección de invitaciones), `SUPABASE_SECRET_KEY` (sólo para `pnpm client:onboard`, `pnpm client:add-member` y el provider backoffice, nunca para el navegador), `SUPABASE_MEMBER_PASSWORD` (sólo localmente con `client:add-member --mode create`, nunca commitearla) y `PLATFORM_ADMIN_USER_IDS` (IDs de usuarios Supabase autorizados al provider backoffice, separados por comas o espacios).
 
 ## Mapas y privacidad
 

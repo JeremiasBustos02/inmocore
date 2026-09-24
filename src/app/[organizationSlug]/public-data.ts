@@ -177,6 +177,7 @@ export const getPublicOrganization = cache(async (organizationSlug: string) => {
       name: organizations.name,
       slug: organizations.slug,
       customDomain: organizations.customDomain,
+      updatedAt: organizations.updatedAt,
       siteVariant: organizations.siteVariant,
       isDemo: organizations.isDemo,
       whatsappPhone: organizations.whatsappPhone,
@@ -223,6 +224,7 @@ export async function getPublicOrganizations() {
       slug: organizations.slug,
       customDomain: organizations.customDomain,
       isDemo: organizations.isDemo,
+      updatedAt: organizations.updatedAt,
     })
     .from(organizations)
     .orderBy(asc(organizations.slug));
@@ -485,6 +487,7 @@ export async function getPublicPropertyPaths(organizationId?: string) {
       organizationCustomDomain: organizations.customDomain,
       organizationIsDemo: organizations.isDemo,
       propertyId: properties.id,
+      updatedAt: properties.updatedAt,
     })
     .from(properties)
     .innerJoin(organizations, eq(properties.organizationId, organizations.id))
@@ -496,6 +499,16 @@ export async function getPublicPropertyPaths(organizationId?: string) {
 
 function isUuid(value: string) {
   return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
+}
+
+function removePrivateAddress(value: string, address: string) {
+  const escapedAddress = address.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  return value
+    .replace(new RegExp(escapedAddress, "gi"), "")
+    .replace(/\s{2,}/g, " ")
+    .replace(/\s+([,.-])/g, "$1")
+    .replace(/[,.-]\s*$/, "")
+    .trim();
 }
 
 export const getPublicPropertyDetail = cache(async (
@@ -567,6 +580,14 @@ export const getPublicPropertyDetail = cache(async (
 
   return {
     ...publicProperty,
+    ...(property.locationVisibility !== "exact" && property.address
+      ? {
+          title: removePrivateAddress(property.title, property.address),
+          description: property.description
+            ? removePrivateAddress(property.description, property.address)
+            : null,
+        }
+      : {}),
     address: getPublicPropertyAddress(property.address, property.locationVisibility),
     locationLabel: getPublicPropertyLocationLabel({
       address: property.address,

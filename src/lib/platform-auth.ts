@@ -17,19 +17,18 @@ export async function findAuthUserByEmail(email: string) {
   const perPage = 1000;
   for (let page = 1; ; page += 1) {
     const { data, error } = await supabase.auth.admin.listUsers({ page, perPage });
-    if (error) throw new Error(`No se pudo consultar Supabase Auth: ${error.message}`);
+    if (error) throw error;
     const user = data.users.find((candidate) => candidate.email?.toLowerCase() === email);
     if (user) return user;
     if (data.users.length < perPage) return null;
   }
 }
 
-export async function inviteAuthUser(email: string) {
+export async function inviteAuthUser(email: string, redirectTo: string) {
   const supabase = getPlatformSupabase();
-  const { data, error } = await supabase.auth.admin.inviteUserByEmail(email);
-  if (error || !data.user) {
-    throw new Error(error?.message ?? "No se pudo invitar al usuario.");
-  }
+  const { data, error } = await supabase.auth.admin.inviteUserByEmail(email, { redirectTo });
+  if (error) throw error;
+  if (!data.user) throw new Error("No se pudo invitar al usuario.");
   return data.user;
 }
 

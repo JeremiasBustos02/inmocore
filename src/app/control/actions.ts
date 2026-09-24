@@ -2,11 +2,13 @@
 
 import { eq } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
+import { headers } from "next/headers";
 import { notFound, redirect } from "next/navigation";
 import { db } from "@/db";
 import { derivePropertyCodePrefix } from "@/lib/property-code-format";
 import { memberships, organizations } from "@/db/schema";
 import { requirePlatformAdmin } from "@/lib/platform-admin";
+import { getPublicSiteUrl } from "@/lib/public-site";
 import {
   createDemoAuthUser,
   deleteAuthUser,
@@ -60,6 +62,23 @@ function isUniqueViolation(error: unknown) {
   return typeof error === "object" && error !== null && "code" in error && error.code === "23505";
 }
 
+function isEmailRateLimit(error: unknown) {
+  return typeof error === "object" && error !== null && "code" in error && error.code === "over_email_send_rate_limit";
+}
+
+function logInvitationFailure(stage: string, error: unknown) {
+  if (process.env.NODE_ENV !== "development") return;
+
+  console.error("[control-invite]", {
+    stage,
+    message: error instanceof Error ? error.message : "Error desconocido",
+    code: typeof error === "object" && error !== null && "code" in error && typeof error.code === "string"
+      ? error.code : undefined,
+    status: typeof error === "object" && error !== null && "status" in error && typeof error.status === "number"
+      ? error.status : undefined,
+  });
+}
+
 export async function createProviderOrganization(formData: FormData) {
   await requirePlatformAdmin();
 
@@ -85,6 +104,7 @@ export async function createProviderOrganization(formData: FormData) {
 
   let createdUserId: string | undefined;
   let organizationId = "";
+  let stage = "findAuthUserByEmail";
   try {
     let ownerId: string | undefined;
     if (ownerEmailValue) {
@@ -92,12 +112,16 @@ export async function createProviderOrganization(formData: FormData) {
       if (existingUser) {
         ownerId = existingUser.id;
       } else {
-        const invitedUser = await inviteAuthUser(ownerEmailValue);
+        stage = "inviteRedirectUrl";
+        const redirectTo = await inviteRedirectUrl(slug);
+        stage = "inviteUserByEmail";
+        const invitedUser = await inviteAuthUser(ownerEmailValue, redirectTo);
         ownerId = invitedUser.id;
         createdUserId = invitedUser.id;
       }
     }
 
+    stage = "createOrganization";
     const [createdOrganization] = await db.transaction(async (transaction) => {
       const [createdOrganization] = await transaction
         .insert(organizations)
@@ -112,6 +136,7 @@ export async function createProviderOrganization(formData: FormData) {
         .returning({ id: organizations.id });
 
       if (ownerId) {
+        stage = "membershipInsert";
         await transaction.insert(memberships).values({
           organizationId: createdOrganization.id,
           userId: ownerId,
@@ -123,11 +148,15 @@ export async function createProviderOrganization(formData: FormData) {
     });
     organizationId = createdOrganization.id;
   } catch (error) {
+    logInvitationFailure(stage, error);
     if (createdUserId) {
       const { error: deleteError } = await deleteAuthUser(createdUserId);
       if (deleteError) {
         console.error(`No se pudo compensar el usuario invitado: ${deleteError.message}`);
       }
+    }
+    if (stage === "inviteUserByEmail" && isEmailRateLimit(error)) {
+      redirect("/control/organizations/new?error=email-rate-limit");
     }
     if (isUniqueViolation(error)) {
       redirect("/control/organizations/new?error=duplicate");
@@ -192,7 +221,7 @@ export async function addProviderMember(
   if (!UUID_PATTERN.test(organizationId)) notFound();
 
   const [organization] = await db
-    .select({ id: organizations.id })
+    .select({ id: organizations.id, slug: organizations.slug })
     .from(organizations)
     .where(eq(organizations.id, organizationId))
     .limit(1);
@@ -203,20 +232,26 @@ export async function addProviderMember(
   try {
     email = readEmail(formData);
     role = readRole(formData);
-  } catch {
+  } catch (error) {
+    logInvitationFailure("validation", error);
     redirect(`${organizationPath(organizationId)}?error=member-invalid`);
   }
 
   let createdUserId: string | undefined;
+  let stage = "findAuthUserByEmail";
   try {
     const existingUser = await findAuthUserByEmail(email);
     let userId = existingUser?.id;
     if (!userId) {
-      const invitedUser = await inviteAuthUser(email);
+      stage = "inviteRedirectUrl";
+      const redirectTo = await inviteRedirectUrl(organization.slug);
+      stage = "inviteUserByEmail";
+      const invitedUser = await inviteAuthUser(email, redirectTo);
       userId = invitedUser.id;
       createdUserId = invitedUser.id;
     }
 
+    stage = "membershipInsert";
     const inserted = await db
       .insert(memberships)
       .values({ organizationId: organization.id, userId, role })
@@ -226,11 +261,15 @@ export async function addProviderMember(
       throw new Error("El usuario ya tiene membership en esta organización.");
     }
   } catch (error) {
+    logInvitationFailure(stage, error);
     if (createdUserId) {
       const { error: deleteError } = await deleteAuthUser(createdUserId);
       if (deleteError) {
         console.error(`No se pudo compensar el usuario invitado: ${deleteError.message}`);
       }
+    }
+    if (stage === "inviteUserByEmail" && isEmailRateLimit(error)) {
+      redirect(`${organizationPath(organizationId)}?error=member-email-rate-limit`);
     }
     if (error instanceof Error && error.message.includes("ya tiene membership")) {
       redirect(`${organizationPath(organizationId)}?error=member-duplicate`);
@@ -313,4 +352,19 @@ function getPlatformHostname() {
   } catch {
     return null;
   }
+}
+
+async function inviteRedirectUrl(organizationSlug: string) {
+  const requestOrigin = (await headers()).get("origin");
+  const localOrigin = requestOrigin ? new URL(requestOrigin) : null;
+  const siteUrl = process.env.NODE_ENV === "development" &&
+    localOrigin?.protocol === "http:" &&
+    (localOrigin.hostname === "localhost" || localOrigin.hostname === "127.0.0.1")
+    ? localOrigin
+    : getPublicSiteUrl();
+
+  if (!siteUrl) throw new Error("NEXT_PUBLIC_SITE_URL es requerido para enviar invitaciones.");
+  const url = new URL("/auth/confirm", siteUrl);
+  url.searchParams.set("organization", organizationSlug);
+  return url.toString();
 }

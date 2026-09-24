@@ -254,12 +254,12 @@ function FilterForm({
     if (typeof sort === "string" && sort && sort !== "newest") params.set("sort", sort);
 
     const query = params.toString();
-    router.push(query ? `${publicBasePath}/properties?${query}` : `${publicBasePath}/properties`);
+    router.push(query ? `${publicBasePath}/propiedades?${query}` : `${publicBasePath}/propiedades`);
   }
 
   return (
     <form
-      action={`${publicBasePath}/properties`}
+      action={`${publicBasePath}/propiedades`}
       autoComplete="off"
       className="flex min-h-0 flex-col"
       id={formId}
@@ -430,8 +430,8 @@ type CatalogSortProps = {
 };
 
 function getClearHref(filters: PublicPropertyFilters, publicBasePath: string) {
-  if (filters.sort === "newest") return `${publicBasePath}/properties`;
-  return `${publicBasePath}/properties?sort=${filters.sort}`;
+  if (filters.sort === "newest") return `${publicBasePath}/propiedades`;
+  return `${publicBasePath}/propiedades?sort=${filters.sort}`;
 }
 
 function getSortHref(
@@ -452,7 +452,7 @@ function getSortHref(
   if (sort !== "newest") params.set("sort", sort);
 
   const query = params.toString();
-  return query ? `${publicBasePath}/properties?${query}` : `${publicBasePath}/properties`;
+  return query ? `${publicBasePath}/propiedades?${query}` : `${publicBasePath}/propiedades`;
 }
 
 export function CatalogSort({ compact = false, filters, publicBasePath }: CatalogSortProps) {

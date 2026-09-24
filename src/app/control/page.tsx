@@ -29,7 +29,7 @@ export default async function ControlPage() {
           <h1 className="mt-2 text-3xl font-semibold tracking-tight">Inmobiliarias</h1>
           <p className="mt-2 text-sm text-muted-foreground">Administrá las organizaciones de la plataforma.</p>
         </div>
-        <Button render={<Link href="/control/organizations/new" />}>
+        <Button nativeButton={false} render={<Link href="/control/organizations/new" />}>
           <Plus aria-hidden="true" />
           Nueva inmobiliaria
         </Button>
@@ -62,11 +62,11 @@ export default async function ControlPage() {
                   <p className="text-sm text-muted-foreground">{organization.propertyCount}</p>
                   <p className="truncate text-sm text-muted-foreground">{organization.customDomain ?? "Sin dominio"}</p>
                   <div className="flex flex-wrap gap-2 md:justify-end">
-                    <Button render={<Link href={`/control/organizations/${organization.id}`} />} size="sm" variant="outline">
+                    <Button nativeButton={false} render={<Link href={`/control/organizations/${organization.id}`} />} size="sm" variant="outline">
                       <Building2 aria-hidden="true" />
                       Abrir
                     </Button>
-                    <Button render={<Link href={`/${encodeURIComponent(organization.slug)}`} />} size="sm" variant="ghost">
+                    <Button nativeButton={false} render={<Link href={`/${encodeURIComponent(organization.slug)}`} />} size="sm" variant="ghost">
                       <ExternalLink aria-hidden="true" />
                       Ver sitio
                     </Button>

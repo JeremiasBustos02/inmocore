@@ -55,8 +55,8 @@ export default async function OrganizationDetailPage({ params, searchParams }: O
           <p className="mt-2 text-sm text-muted-foreground">{organization.slug}</p>
         </div>
         <div className="flex flex-wrap gap-2">
-          <Button render={<Link href={`/${encodeURIComponent(organization.slug)}`} />} size="sm" variant="outline">Ver sitio público</Button>
-          <Button render={<Link href={`/admin/${encodeURIComponent(organization.slug)}`} />} size="sm">Abrir panel</Button>
+          <Button nativeButton={false} render={<Link href={`/${encodeURIComponent(organization.slug)}`} />} size="sm" variant="outline">Ver sitio público</Button>
+          <Button nativeButton={false} render={<Link href={`/admin/${encodeURIComponent(organization.slug)}`} />} size="sm">Abrir panel</Button>
         </div>
       </div>
 
@@ -136,6 +136,7 @@ function RoleField() {
 function getErrorMessage(error: string) {
   if (error === "duplicate") return "El slug o el dominio ya pertenece a otra organización.";
   if (error === "member-invalid") return "El email o el rol no son válidos.";
+  if (error === "member-email-rate-limit") return "Se alcanzó temporalmente el límite de emails. Intentá nuevamente más tarde.";
   if (error === "member-duplicate") return "Ese usuario ya pertenece a esta organización.";
   if (error === "demo-invalid") return "El email, la contraseña o el rol demo no son válidos.";
   if (error === "demo-failed") return "No se pudo crear el usuario demo.";

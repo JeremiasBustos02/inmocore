@@ -4,9 +4,11 @@ import { logout } from "@/app/auth-actions";
 import { Button } from "@/components/ui/button";
 import { requireAuthenticatedUserId } from "@/lib/auth";
 import { getAccessibleOrganizations } from "@/lib/organizations";
+import { getInvitationOrganization } from "@/lib/invitation-onboarding";
 
 export default async function AdminPage() {
   const userId = await requireAuthenticatedUserId();
+  if (await getInvitationOrganization(userId)) redirect("/auth/set-password");
   const accessibleOrganizations = await getAccessibleOrganizations(userId);
 
   if (accessibleOrganizations.length === 1) {

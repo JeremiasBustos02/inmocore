@@ -15,7 +15,7 @@ export function PublicHeader({
   logoUrl,
 }: PublicHeaderProps) {
   const homeHref = publicBasePath || "/";
-  const propertiesHref = getPublicPath(publicBasePath, "/properties");
+  const propertiesHref = getPublicPath(publicBasePath, "/propiedades");
   const links = [
     { label: "Inicio", href: homeHref },
     { label: "Propiedades", href: propertiesHref },

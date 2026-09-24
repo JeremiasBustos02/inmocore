@@ -10,6 +10,17 @@ import {
 } from "@/lib/public-site";
 import { getPublicOrganization } from "./[organizationSlug]/public-data";
 
+const disallowedPlatformPaths = [
+  "/admin",
+  "/control",
+  "/auth",
+  "/dev",
+  "/login",
+  "/api",
+];
+
+const disallowedTenantPaths = ["/admin", "/control", "/auth", "/dev", "/login"];
+
 export default async function robots(): Promise<MetadataRoute.Robots> {
   const customDomain = normalizeCustomDomain(
     (await headers()).get(CUSTOM_DOMAIN_HEADER),
@@ -18,7 +29,7 @@ export default async function robots(): Promise<MetadataRoute.Robots> {
     const organization = await getPublicOrganization(
       `${CUSTOM_DOMAIN_ROUTE_PREFIX}${customDomain}`,
     );
-    if (!organization || organization.isDemo) {
+    if (!organization) {
       return { rules: { userAgent: "*", disallow: "/" } };
     }
 
@@ -26,7 +37,7 @@ export default async function robots(): Promise<MetadataRoute.Robots> {
       rules: {
         userAgent: "*",
         allow: "/",
-        disallow: ["/admin/", "/login"],
+        disallow: disallowedTenantPaths,
       },
       sitemap: getOrganizationPublicUrl(organization, "/sitemap.xml") as string,
     };
@@ -38,7 +49,7 @@ export default async function robots(): Promise<MetadataRoute.Robots> {
     rules: {
       userAgent: "*",
       allow: "/",
-      disallow: ["/admin/", "/login"],
+      disallow: disallowedPlatformPaths,
     },
     ...(siteUrl ? { sitemap: getPublicSitePath("/sitemap.xml") } : {}),
   };

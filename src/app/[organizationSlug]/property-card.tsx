@@ -19,7 +19,7 @@ export function PropertyCard({ publicBasePath, property }: PropertyCardProps) {
       <Link
         aria-label={`Ver ${property.title} en ${property.city}`}
         className="block focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-ring"
-        href={`${publicBasePath}/properties/${property.id}`}
+        href={`${publicBasePath}/propiedades/${property.id}`}
       >
         <div className="relative aspect-[4/3] overflow-hidden rounded-t-xl bg-muted">
           {property.coverUrl ? (

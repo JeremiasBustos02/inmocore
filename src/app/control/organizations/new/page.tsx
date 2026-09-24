@@ -59,6 +59,7 @@ function Field({ label, name, placeholder, required, type = "text" }: { label: s
 
 function getErrorMessage(error: string) {
   if (error === "duplicate") return "El slug o el dominio ya pertenece a otra organización.";
+  if (error === "email-rate-limit") return "Se alcanzó temporalmente el límite de emails. Intentá nuevamente más tarde.";
   if (error === "invalid-email") return "El email del owner no es válido.";
   if (error === "invalid") return "Revisá los datos ingresados.";
   return "No se pudo crear la organización.";

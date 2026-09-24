@@ -26,13 +26,20 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
 
     const propertyPaths = await getPublicPropertyPaths(organization.id);
     return [
-      { url: getOrganizationPublicUrl(organization) as string },
-      { url: getOrganizationPublicUrl(organization, "/properties") as string },
+      {
+        url: getOrganizationPublicUrl(organization) as string,
+        lastModified: organization.updatedAt,
+      },
+      {
+        url: getOrganizationPublicUrl(organization, "/propiedades") as string,
+        lastModified: organization.updatedAt,
+      },
       ...propertyPaths.map((property) => ({
         url: getOrganizationPublicUrl(
           organization,
-          `/properties/${property.propertyId}`,
+          `/propiedades/${property.propertyId}`,
         ) as string,
+        lastModified: property.updatedAt,
       })),
     ];
   }
@@ -49,11 +56,11 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     ({ customDomain, isDemo }) => !customDomain && !isDemo,
   )) {
     const homeUrl = getOrganizationPublicUrl(organization);
-    const catalogUrl = getOrganizationPublicUrl(organization, "/properties");
+    const catalogUrl = getOrganizationPublicUrl(organization, "/propiedades");
     if (!homeUrl || !catalogUrl) continue;
     urls.push(
-      { url: homeUrl },
-      { url: catalogUrl },
+      { url: homeUrl, lastModified: organization.updatedAt },
+      { url: catalogUrl, lastModified: organization.updatedAt },
     );
   }
 
@@ -67,11 +74,12 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     };
     const url = getOrganizationPublicUrl(
       organization,
-      `/properties/${property.propertyId}`,
+      `/propiedades/${property.propertyId}`,
     );
     if (!url) continue;
     urls.push({
       url,
+      lastModified: property.updatedAt,
     });
   }
 

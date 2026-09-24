@@ -2,12 +2,12 @@
 
 ## Estado actual
 
-La organización demo está creada como tenant controlado:
+La organización está creada como tenant controlado y continúa siendo una propuesta comercial con datos de demostración:
 
 - Slug: `fabricio-gomez-ramos`
 - Dominio: ninguno (`customDomain = null`)
 - Variante: `editorial`
-- Estado: demo/no cliente (`isDemo = true`)
+- Estado técnico: activa/indexable (`isDemo = false`), intencionalmente
 - Administración: cuenta de desarrollo existente `prueba@inmocore.com`
 
 No se envió ninguna invitación a Fabricio, no se registró dominio a su nombre y no se configuró DNS externo.
@@ -31,7 +31,7 @@ La Home usa `editorial`, el nombre de la inmobiliaria, color magenta del materia
 5. Se reemplazan los datos pendientes, logo, Hero y propiedades demo por assets y publicaciones reales.
 6. Se crea o invita el owner real mediante el flujo normal de Supabase y se conserva la membership controlada sólo durante la transición acordada.
 7. Se cargan o importan propiedades reales y se validan Home, catálogo, fichas, imágenes y WhatsApp.
-8. Se cambia `isDemo` a `false`; con eso se habilita indexación normal y la organización puede aparecer en el sitemap correspondiente.
+8. Se mantiene `isDemo = false`; la organización puede indexarse y aparecer en el sitemap correspondiente mientras cumpla las demás condiciones.
 9. Se revisan canonical, `og:url`, `sitemap.xml`, `robots.txt` y el recorrido móvil antes de entregar.
 
 ## Limpieza antes de entregar

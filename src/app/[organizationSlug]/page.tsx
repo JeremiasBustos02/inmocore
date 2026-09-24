@@ -41,8 +41,14 @@ export async function generateMetadata({
 
   if (!organization) return {};
 
-  const title = `${organization.name} | Propiedades`;
-  const description = `Propiedades publicadas por ${organization.name}, disponibles para venta y alquiler.`;
+  const heroSuggestionData = await getPublicHeroSuggestions(organization.id);
+  const operations = heroSuggestionData.operations
+    .map((operation) => `en ${publicOperationLabels[operation].toLowerCase()}`);
+  const operationText = operations.length === 2
+    ? `${operations[0]} y ${operations[1]}`
+    : operations[0];
+  const title = organization.name;
+  const description = `Consultá las propiedades publicadas por ${organization.name}${operationText ? `. Hay publicaciones ${operationText}` : ""}.`.slice(0, 155);
   const heroImageUrl = getPublicOrganizationAssetUrl(organization.heroImagePath);
   const canonical = getOrganizationPublicUrl(organization);
 
@@ -70,41 +76,46 @@ const propertyTypes = [
   { label: "Locales", value: "commercial" },
 ] as const;
 
-const verifiedBenefits = [
-  {
-    title: "Conocemos la zona",
-    description: "Conocemos el mercado inmobiliario de la región y sus alrededores.",
-  },
-  {
-    title: "Te acompañamos",
-    description: "Estamos presentes desde la primera visita hasta la firma.",
-  },
-  {
-    title: "Hablamos claro",
-    description: "Información simple y transparente para que puedas decidir tranquilo.",
-  },
-];
-
-const demoBenefits = [
-  {
-    title: "Una presencia propia",
-    description: "Una web pensada para que la identidad de la inmobiliaria esté al frente.",
-  },
-  {
-    title: "Propiedades al frente",
-    description: "Una búsqueda clara para recorrer oportunidades desde cualquier dispositivo.",
-  },
-  {
-    title: "Contacto directo",
-    description: "Un recorrido simple para pasar de la consulta a la conversación.",
-  },
-];
-
 export default async function PublicHomePage({ params }: PublicHomePageProps) {
   const { organizationSlug } = await params;
   const organization = await getPublicOrganization(organizationSlug);
 
   if (!organization) notFound();
+
+  const canonical = getOrganizationPublicUrl(organization);
+  const logoUrl = getPublicOrganizationAssetUrl(organization.logoPath);
+  const absoluteLogoUrl = logoUrl && canonical
+    ? new URL(logoUrl, canonical).toString()
+    : null;
+  const hasBusinessCoordinates =
+    organization.contactLatitude !== null &&
+    organization.contactLongitude !== null &&
+    Number.isFinite(organization.contactLatitude) &&
+    Number.isFinite(organization.contactLongitude) &&
+    organization.contactLatitude >= -90 &&
+    organization.contactLatitude <= 90 &&
+    organization.contactLongitude >= -180 &&
+    organization.contactLongitude <= 180;
+  const businessStructuredData = canonical
+    ? {
+        "@context": "https://schema.org",
+        "@type": "RealEstateAgent",
+        name: organization.name,
+        url: canonical,
+        ...(absoluteLogoUrl ? { logo: absoluteLogoUrl } : {}),
+        ...(organization.contactPhone ? { telephone: organization.contactPhone } : {}),
+        ...(organization.contactEmail ? { email: organization.contactEmail } : {}),
+        ...(hasBusinessCoordinates
+          ? {
+              geo: {
+                "@type": "GeoCoordinates",
+                latitude: organization.contactLatitude,
+                longitude: organization.contactLongitude,
+              },
+            }
+          : {}),
+      }
+    : null;
 
   const [propertyList, cities, heroSuggestionData, contactHours] = await Promise.all([
     getPublicHomeData(organization.id),
@@ -115,7 +126,6 @@ export default async function PublicHomePage({ params }: PublicHomePageProps) {
   const heroProperty = propertyList.find((property) => property.coverUrl);
   const heroImageUrl = getPublicOrganizationAssetUrl(organization.heroImagePath) ?? heroProperty?.coverUrl;
   const publicBasePath = getPublicBasePath(organizationSlug, organization.slug);
-  const benefits = organization.isDemo ? demoBenefits : verifiedBenefits;
   const suggestedOperation = heroSuggestionData.operations.includes("rent")
     ? "rent"
     : heroSuggestionData.operations[0];
@@ -156,6 +166,14 @@ export default async function PublicHomePage({ params }: PublicHomePageProps) {
       />
 
       <main id="contenido-principal">
+        {businessStructuredData ? (
+          <script
+            type="application/ld+json"
+            dangerouslySetInnerHTML={{
+              __html: JSON.stringify(businessStructuredData).replace(/</g, "\\u003c"),
+            }}
+          />
+        ) : null}
         <section
           aria-labelledby="hero-title"
           className="relative flex min-h-[560px] overflow-hidden bg-muted sm:min-h-[580px] lg:min-h-[600px]"
@@ -183,10 +201,10 @@ export default async function PublicHomePage({ params }: PublicHomePageProps) {
                 className="public-hero-enter public-hero-enter-1 w-full max-w-4xl text-balance text-[clamp(2.35rem,4.2vw,3.75rem)] font-semibold leading-[1.05] tracking-[-0.04em]"
               id="hero-title"
             >
-               {organization.heroTitle ?? "Encontrá tu próximo lugar"}
+                {organization.heroTitle ?? `${organization.name} | Propiedades`}
             </h1>
               <p className={`public-hero-enter public-hero-enter-2 mt-3 w-full max-w-xl text-base leading-7 sm:mt-4 sm:text-[19px] ${heroImageUrl ? "text-white/85" : "text-muted-foreground"}`}>
-               {organization.heroSubtitle ?? "Propiedades para vivir, invertir y proyectar con confianza."}
+                {organization.heroSubtitle ?? `Consultá las propiedades publicadas por ${organization.name}.`}
             </p>
              <div className="relative z-10 mt-7 w-full sm:mt-8">
                <PropertySearch
@@ -219,7 +237,7 @@ export default async function PublicHomePage({ params }: PublicHomePageProps) {
             </div>
             <Link
                className="public-link flex w-fit cursor-pointer items-center gap-2 text-sm font-semibold"
-              href={getPublicPath(publicBasePath, "/properties")}
+              href={getPublicPath(publicBasePath, "/propiedades")}
             >
               Ver todas
               <ArrowRight aria-hidden="true" className="size-4" />
@@ -252,7 +270,7 @@ export default async function PublicHomePage({ params }: PublicHomePageProps) {
               {propertyTypes.map((type) => (
                 <Link
                    className="group flex min-h-20 cursor-pointer items-center justify-between border-b border-r border-border bg-background px-5 text-base font-semibold hover:bg-muted/40 focus-visible:outline-2 focus-visible:outline-offset-[-2px] sm:px-6"
-                  href={`${getPublicPath(publicBasePath, "/properties")}?type=${type.value}`}
+                  href={`${getPublicPath(publicBasePath, "/propiedades")}?type=${type.value}`}
                   key={type.value}
                 >
                   {type.label}
@@ -269,22 +287,17 @@ export default async function PublicHomePage({ params }: PublicHomePageProps) {
             <PublicReveal as="section" aria-labelledby="estudio-title" className="scroll-mt-6" id="estudio">
               <div className="mx-auto grid w-full max-w-[1440px] gap-16 px-5 pb-10 pt-16 sm:px-8 sm:pb-14 sm:pt-20 md:grid-cols-[1.15fr_.85fr] md:gap-20 lg:gap-32 lg:px-8 lg:pb-16 lg:pt-24">
                <div className="max-w-2xl">
-                 <p className="text-xs font-semibold tracking-[0.22em] text-primary/70">¿POR QUÉ ELEGIRNOS?</p>
-                 <h2 className="mt-6 text-balance text-[clamp(2.6rem,5.4vw,5.25rem)] font-semibold leading-[1.02] tracking-[-0.055em]" id="estudio-title">
-                   {organization.isDemo
-                     ? "Una web propia para presentar propiedades con claridad."
-                     : "Conocemos la zona. Te acompañamos. Hablamos claro."}
-                 </h2>
-               </div>
+                  <p className="text-xs font-semibold tracking-[0.22em] text-primary/70">INFORMACIÓN</p>
+                  <h2 className="mt-6 text-balance text-[clamp(2.6rem,5.4vw,5.25rem)] font-semibold leading-[1.02] tracking-[-0.055em]" id="estudio-title">
+                    Propiedades publicadas por {organization.name}.
+                  </h2>
+                </div>
 
-               <div className="md:pt-3">
-                 {benefits.map(({ title, description }, index) => (
-                   <article className={`py-7 ${index > 0 ? "border-t border-border" : ""}`} key={title}>
-                     <h3 className="text-xl font-semibold tracking-[-0.025em]">{title}</h3>
-                     <p className="mt-3 max-w-sm text-sm leading-6 text-muted-foreground">{description}</p>
-                   </article>
-                 ))}
-               </div>
+                <div className="md:pt-3">
+                  <p className="max-w-sm py-7 text-sm leading-6 text-muted-foreground">
+                    Explorá las propiedades disponibles, sus características y las opciones de contacto publicadas.
+                  </p>
+                </div>
              </div>
             </PublicReveal>
 
@@ -300,9 +313,7 @@ export default async function PublicHomePage({ params }: PublicHomePageProps) {
                    ¿Buscás una propiedad?
                  </h2>
                   <p className="mt-5 text-lg leading-8 text-foreground/70 sm:text-xl">
-                    {organization.isDemo
-                      ? "Los datos de contacto se incorporan con información confirmada."
-                      : "Estamos para ayudarte a encontrarla."}
+                    Podés comunicarte con {organization.name} por los medios publicados.
                   </p>
                </div>
 

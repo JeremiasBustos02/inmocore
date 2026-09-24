@@ -1,8 +1,9 @@
 import type { ReactNode } from "react";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { AdminMobileNav, AdminSidebar } from "./admin-navigation";
 import { requireAuthenticatedUserId } from "@/lib/auth";
 import { requireOrganizationMembership } from "@/lib/organizations";
+import { getInvitationOrganization } from "@/lib/invitation-onboarding";
 
 type AdminLayoutProps = {
   children: ReactNode;
@@ -11,6 +12,7 @@ type AdminLayoutProps = {
 
 export default async function AdminLayout({ children, params }: AdminLayoutProps) {
   const userId = await requireAuthenticatedUserId();
+  if (await getInvitationOrganization(userId)) redirect("/auth/set-password");
   const { organizationSlug } = await params;
   const membership = await requireOrganizationMembership(userId, organizationSlug);
 

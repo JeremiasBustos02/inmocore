@@ -22,7 +22,7 @@ export function PublicFooter({
   logoUrl,
 }: PublicFooterProps) {
   const homeHref = publicBasePath || "/";
-  const propertiesHref = getPublicPath(publicBasePath, "/properties");
+  const propertiesHref = getPublicPath(publicBasePath, "/propiedades");
   const hasContact = Boolean(contactAddress || contactEmail || contactPhone || whatsappPhone);
 
   return (
@@ -32,7 +32,7 @@ export function PublicFooter({
           <Link className="inline-flex max-w-[15rem] cursor-pointer items-center transition-opacity duration-200 hover:opacity-75 focus-visible:rounded-sm focus-visible:outline-2 focus-visible:outline-offset-4" href={homeHref}>
             {logoUrl ? <Image alt={organizationName} className="h-12 w-auto max-w-[13rem] object-contain object-left" height={48} sizes="208px" src={logoUrl} width={208} /> : <span className="text-lg font-semibold tracking-[-0.02em]">{organizationName}</span>}
           </Link>
-          <p className="mt-5 max-w-xs text-sm leading-6 text-muted-foreground">Una gestión cercana, clara y profesional para encontrar tu próximo lugar.</p>
+          <p className="mt-5 max-w-xs text-sm leading-6 text-muted-foreground">Información y datos de contacto de {organizationName}.</p>
         </div>
         <nav aria-label="Navegación del pie" className="flex flex-col items-start gap-3 text-sm">
           <p className="mb-1 font-semibold text-foreground">Navegación</p>

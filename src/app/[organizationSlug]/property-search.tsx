@@ -34,7 +34,7 @@ const priceRanges = [
 export function PropertySearch({ cities, hasHeroImage, publicBasePath, suggestions }: PropertySearchProps) {
   return (
     <form
-      action={`${publicBasePath}/properties`}
+      action={`${publicBasePath}/propiedades`}
       autoComplete="off"
       className="public-hero-enter public-hero-enter-3 mx-auto w-full max-w-[780px] min-w-0"
       method="get"
@@ -173,7 +173,7 @@ export function PropertySearch({ cities, hasHeroImage, publicBasePath, suggestio
                 className={hasHeroImage
                   ? "cursor-pointer rounded-full border border-white/45 bg-white/5 px-3.5 py-1.5 text-xs font-medium text-white/90 backdrop-blur-sm transition-[background-color,border-color,transform] duration-200 hover:-translate-y-px hover:border-white/70 hover:bg-white/15 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
                   : "cursor-pointer rounded-full border border-border bg-background/80 px-3.5 py-1.5 text-xs font-medium text-foreground transition-[background-color,border-color,transform] duration-200 hover:-translate-y-px hover:bg-background focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"}
-                href={`${publicBasePath}/properties?${searchParams.toString()}`}
+                href={`${publicBasePath}/propiedades?${searchParams.toString()}`}
                 key={`${suggestion.label}-${searchParams.toString()}`}
               >
                 {suggestion.label}
