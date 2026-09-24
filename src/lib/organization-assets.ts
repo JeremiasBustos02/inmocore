@@ -8,7 +8,7 @@ export const ORGANIZATION_ASSET_EXTENSIONS = {
   "image/png": "png",
 } as const;
 
-export type OrganizationAssetType = "logo" | "hero";
+export type OrganizationAssetType = "logo" | "hero" | "about";
 
 export function getSafeBrandColor(value: string | null) {
   return value && /^#[0-9a-f]{6}$/i.test(value) ? value : "#1b1b1b";

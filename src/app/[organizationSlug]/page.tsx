@@ -125,6 +125,8 @@ export default async function PublicHomePage({ params }: PublicHomePageProps) {
   ]);
   const heroProperty = propertyList.find((property) => property.coverUrl);
   const heroImageUrl = getPublicOrganizationAssetUrl(organization.heroImagePath) ?? heroProperty?.coverUrl;
+  const aboutImageUrl = getPublicOrganizationAssetUrl(organization.aboutImagePath);
+  const hasAbout = Boolean(organization.aboutTitle?.trim() || organization.aboutDescription?.trim() || aboutImageUrl);
   const publicBasePath = getPublicBasePath(organizationSlug, organization.slug);
   const suggestedOperation = heroSuggestionData.operations.includes("rent")
     ? "rent"
@@ -283,27 +285,36 @@ export default async function PublicHomePage({ params }: PublicHomePageProps) {
           </div>
          </PublicReveal>
 
-         <div className="border-t border-border bg-muted">
-            <PublicReveal as="section" aria-labelledby="estudio-title" className="scroll-mt-6" id="estudio">
-              <div className="mx-auto grid w-full max-w-[1440px] gap-16 px-5 pb-10 pt-16 sm:px-8 sm:pb-14 sm:pt-20 md:grid-cols-[1.15fr_.85fr] md:gap-20 lg:gap-32 lg:px-8 lg:pb-16 lg:pt-24">
-               <div className="max-w-2xl">
-                  <p className="text-xs font-semibold tracking-[0.22em] text-primary/70">INFORMACIÓN</p>
-                  <h2 className="mt-6 text-balance text-[clamp(2.6rem,5.4vw,5.25rem)] font-semibold leading-[1.02] tracking-[-0.055em]" id="estudio-title">
-                    Propiedades publicadas por {organization.name}.
-                  </h2>
+          <div className="border-t border-border bg-muted">
+            {hasAbout ? (
+              <PublicReveal as="section" aria-labelledby="about-title" className="scroll-mt-6" id="estudio">
+                <div className={`mx-auto grid w-full max-w-[1440px] gap-8 px-5 pb-16 pt-16 sm:px-8 sm:pb-20 sm:pt-20 md:items-center md:gap-12 lg:gap-20 lg:px-8 lg:pb-24 lg:pt-24 ${aboutImageUrl ? "md:grid-cols-[minmax(0,43fr)_minmax(0,57fr)]" : ""}`}>
+                  {aboutImageUrl ? (
+                    <div className="relative aspect-[4/5] w-full max-w-sm overflow-hidden bg-border md:max-w-none">
+                      <Image
+                        alt={organization.aboutTitle?.trim() ? `${organization.aboutTitle.trim()} - ${organization.name}` : organization.name}
+                        className="object-cover"
+                        fill
+                        sizes="(min-width: 1440px) 540px, (min-width: 768px) 40vw, (min-width: 640px) 384px, calc(100vw - 40px)"
+                        src={aboutImageUrl}
+                      />
+                    </div>
+                  ) : null}
+                  <div className="min-w-0 max-w-2xl">
+                    {organization.aboutEyebrow?.trim() ? <p className="text-xs font-semibold tracking-[0.22em] text-primary/70">{organization.aboutEyebrow}</p> : null}
+                    <h2 className="mt-5 break-words text-balance text-[clamp(2rem,4vw,4rem)] font-semibold leading-[1.08] tracking-[-0.045em]" id="about-title">{organization.aboutTitle?.trim() || organization.name}</h2>
+                    {organization.aboutDescription?.trim() ? <p className="mt-7 whitespace-pre-line break-words text-base leading-8 text-foreground/75 sm:text-lg sm:leading-9">{organization.aboutDescription}</p> : null}
+                    {organization.whatsappPhone ? (
+                      <a className="public-link mt-8 inline-flex w-fit items-center gap-2 text-sm font-semibold focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-primary" href={`https://wa.me/${organization.whatsappPhone}`} rel="noopener noreferrer" target="_blank">
+                        Contactar <ArrowRight aria-hidden="true" className="size-4" />
+                      </a>
+                    ) : null}
+                  </div>
                 </div>
+              </PublicReveal>
+            ) : null}
 
-                <div className="md:pt-3">
-                  <p className="max-w-sm py-7 text-sm leading-6 text-muted-foreground">
-                    Explorá las propiedades disponibles, sus características y las opciones de contacto publicadas.
-                  </p>
-                </div>
-             </div>
-            </PublicReveal>
-
-           <div className="mx-auto w-full max-w-[1440px] px-5 sm:px-8 lg:px-8" aria-hidden="true">
-             <div className="border-t border-border/70" />
-           </div>
+            {hasAbout ? <div className="mx-auto w-full max-w-[1440px] px-5 sm:px-8 lg:px-8" aria-hidden="true"><div className="border-t border-border/70" /></div> : null}
 
             <PublicReveal as="section" aria-labelledby="contact-title" className="scroll-mt-6" id="contacto">
               <div className="mx-auto w-full max-w-[1440px] px-5 pb-16 pt-10 sm:px-8 sm:pb-20 sm:pt-14 lg:px-8 lg:pb-24 lg:pt-20">

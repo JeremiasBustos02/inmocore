@@ -40,6 +40,10 @@ export async function requireOrganizationMembership(
       heroImagePath: organizations.heroImagePath,
       heroTitle: organizations.heroTitle,
       heroSubtitle: organizations.heroSubtitle,
+      aboutEyebrow: organizations.aboutEyebrow,
+      aboutTitle: organizations.aboutTitle,
+      aboutDescription: organizations.aboutDescription,
+      aboutImagePath: organizations.aboutImagePath,
       role: memberships.role,
     })
     .from(memberships)

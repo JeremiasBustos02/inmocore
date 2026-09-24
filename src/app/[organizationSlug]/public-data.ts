@@ -190,7 +190,11 @@ export const getPublicOrganization = cache(async (organizationSlug: string) => {
       primaryColor: organizations.primaryColor,
       heroImagePath: organizations.heroImagePath,
       heroTitle: organizations.heroTitle,
-      heroSubtitle: organizations.heroSubtitle,
+       heroSubtitle: organizations.heroSubtitle,
+       aboutEyebrow: organizations.aboutEyebrow,
+       aboutTitle: organizations.aboutTitle,
+       aboutDescription: organizations.aboutDescription,
+       aboutImagePath: organizations.aboutImagePath,
     })
     .from(organizations)
     .where(

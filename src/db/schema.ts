@@ -81,6 +81,10 @@ export const organizations = pgTable(
     heroImagePath: text("hero_image_path"),
     heroTitle: text("hero_title"),
     heroSubtitle: text("hero_subtitle"),
+    aboutEyebrow: text("about_eyebrow"),
+    aboutTitle: text("about_title"),
+    aboutDescription: text("about_description"),
+    aboutImagePath: text("about_image_path"),
     createdAt: timestamp("created_at", { withTimezone: true })
       .defaultNow()
       .notNull(),

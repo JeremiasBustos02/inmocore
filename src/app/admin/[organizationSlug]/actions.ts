@@ -1,6 +1,6 @@
 "use server";
 
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { notFound, redirect } from "next/navigation";
 import { db } from "@/db";
@@ -56,7 +56,7 @@ const HEX_COLOR_PATTERN = /^#[0-9a-f]{6}$/i;
 const UUID_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const ASSET_PATH_PATTERN =
-  /^[0-9a-f-]{36}\/(logo|hero)\/[0-9a-f-]{36}\.(webp|jpg|png)$/i;
+  /^[0-9a-f-]{36}\/(logo|hero|about)\/[0-9a-f-]{36}\.(webp|jpg|png)$/i;
 
 function readOptionalText(formData: FormData, name: string, maxLength: number) {
   const value = formData.get(name);
@@ -87,6 +87,9 @@ export async function updateOrganizationSettings(
   const contactHours = readOptionalText(formData, "contactHours", 1000);
   const heroTitle = readOptionalText(formData, "heroTitle", 120);
   const heroSubtitle = readOptionalText(formData, "heroSubtitle", 240);
+  const aboutEyebrow = readOptionalText(formData, "aboutEyebrow", 80);
+  const aboutTitle = readOptionalText(formData, "aboutTitle", 120);
+  const aboutDescription = readOptionalText(formData, "aboutDescription", 5000);
   const whatsappPhone = readOptionalText(formData, "whatsappPhone", 20)?.replace(/[+().\s-]/g, "") ?? null;
   const coordinates = parseCoordinates(
     formData.get("latitude"),
@@ -122,6 +125,9 @@ export async function updateOrganizationSettings(
       primaryColor,
       heroTitle,
       heroSubtitle,
+      aboutEyebrow,
+      aboutTitle,
+      aboutDescription,
       updatedAt: new Date(),
     })
     .where(eq(organizations.id, membership.id));
@@ -150,14 +156,14 @@ export async function updateOrganizationAsset(
     !ASSET_PATH_PATTERN.test(storagePath) ||
     !expectedExtension ||
     (assetType === "logo" && contentType === "image/jpeg") ||
-    (assetType === "hero" && contentType === "image/png") ||
+    (assetType !== "logo" && contentType === "image/png") ||
     !storagePath.toLowerCase().endsWith(`.${expectedExtension}`)
   ) {
     return { ok: false, error: "La ruta del asset no es válida." } as const;
   }
 
   const [organization] = await db
-    .select({ logoPath: organizations.logoPath, heroImagePath: organizations.heroImagePath })
+    .select({ logoPath: organizations.logoPath, heroImagePath: organizations.heroImagePath, aboutImagePath: organizations.aboutImagePath })
     .from(organizations)
     .where(eq(organizations.id, membership.id))
     .limit(1);
@@ -186,10 +192,12 @@ export async function updateOrganizationAsset(
     return { ok: false, error: "El archivo no cumple los requisitos de imagen." } as const;
   }
 
-  const previousPath = assetType === "logo" ? organization?.logoPath : organization?.heroImagePath;
+  const previousPath = assetType === "logo" ? organization?.logoPath : assetType === "hero" ? organization?.heroImagePath : organization?.aboutImagePath;
   const update = assetType === "logo"
     ? { logoPath: storagePath, updatedAt: new Date() }
-    : { heroImagePath: storagePath, updatedAt: new Date() };
+    : assetType === "hero"
+      ? { heroImagePath: storagePath, updatedAt: new Date() }
+      : { aboutImagePath: storagePath, updatedAt: new Date() };
 
   try {
     await db.update(organizations).set(update).where(eq(organizations.id, membership.id));
@@ -201,6 +209,26 @@ export async function updateOrganizationAsset(
     await supabase.storage.from(ORGANIZATION_ASSETS_BUCKET).remove([previousPath]);
   }
 
+  revalidatePath(`/${encodeURIComponent(organizationSlug)}`);
+  revalidatePath(adminOrganizationPath(organizationSlug));
+  return { ok: true } as const;
+}
+
+export async function removeOrganizationAboutImage(organizationSlug: string) {
+  const userId = await requireAuthenticatedUserId();
+  const membership = await requireOrganizationMembership(userId, organizationSlug);
+  if (!membership || (membership.role !== "owner" && membership.role !== "admin")) notFound();
+
+  if (!membership.aboutImagePath) return { ok: true } as const;
+  const [updated] = await db.update(organizations)
+    .set({ aboutImagePath: null, updatedAt: new Date() })
+    .where(and(eq(organizations.id, membership.id), eq(organizations.aboutImagePath, membership.aboutImagePath)))
+    .returning({ id: organizations.id });
+  // Remove the old object after the public reference is cleared.
+  if (updated) {
+    const supabase = await createClient();
+    await supabase.storage.from(ORGANIZATION_ASSETS_BUCKET).remove([membership.aboutImagePath]);
+  }
   revalidatePath(`/${encodeURIComponent(organizationSlug)}`);
   revalidatePath(adminOrganizationPath(organizationSlug));
   return { ok: true } as const;

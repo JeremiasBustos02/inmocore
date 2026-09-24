@@ -34,6 +34,7 @@ export default async function OrganizationPage({ params, searchParams }: Organiz
   const { settings } = await searchParams;
   const logoUrl = membership.logoPath ? getOrganizationAssetUrl(membership.logoPath) : null;
   const heroImageUrl = membership.heroImagePath ? getOrganizationAssetUrl(membership.heroImagePath) : null;
+  const aboutImageUrl = membership.aboutImagePath ? getOrganizationAssetUrl(membership.aboutImagePath) : null;
   const hasContact = Boolean(membership.contactAddress || membership.contactHours || membership.contactPhone || membership.contactEmail);
   const coordinates = membership.contactLatitude !== null && membership.contactLongitude !== null
     ? { latitude: membership.contactLatitude, longitude: membership.contactLongitude }
@@ -55,6 +56,7 @@ export default async function OrganizationPage({ params, searchParams }: Organiz
           <ConfigurationStatus complete={Boolean(membership.primaryColor)} label="Branding" />
           <ConfigurationStatus complete={Boolean(membership.logoPath)} label="Logo" />
           <ConfigurationStatus complete={Boolean(membership.heroImagePath)} label="Imagen de portada" />
+          <ConfigurationStatus complete={Boolean(membership.aboutTitle || membership.aboutDescription || membership.aboutImagePath)} label="Presentación" />
         </ul>
       </section>
 
@@ -97,6 +99,16 @@ export default async function OrganizationPage({ params, searchParams }: Organiz
             <label className="flex flex-col gap-2 text-sm font-medium">Subtítulo<textarea className="min-h-24 rounded-lg border border-input bg-transparent px-3 py-2 font-normal outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50" defaultValue={membership.heroSubtitle ?? ""} maxLength={240} name="heroSubtitle" placeholder="Propiedades para vivir, invertir y proyectar con confianza." /></label>
           </div>
           <div><h3 className="font-medium">Imagen de portada</h3><p className="mb-3 mt-1 text-sm text-muted-foreground">Se usa como fondo del Hero y se reemplaza sin versionado.</p><OrganizationAssetUpload assetType="hero" currentUrl={heroImageUrl} label="Imagen de portada" organizationId={membership.id} organizationSlug={organizationSlug} /></div>
+        </section>
+
+        <section className="flex flex-col gap-5 rounded-xl border bg-card p-6" aria-labelledby="about-settings-title">
+          <div><h2 className="text-xl font-semibold" id="about-settings-title">Sobre mí / Sobre nosotros</h2><p className="mt-1 text-sm text-muted-foreground">Usá información real sobre la inmobiliaria o la persona responsable. Este contenido también puede aparecer en buscadores.</p></div>
+          <div className="grid gap-4">
+            <label className="flex flex-col gap-2 text-sm font-medium">Etiqueta de presentación<input className="h-10 rounded-lg border border-input bg-transparent px-3 font-normal outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50" defaultValue={membership.aboutEyebrow ?? ""} maxLength={80} name="aboutEyebrow" placeholder="Sobre nosotros" /></label>
+            <label className="flex flex-col gap-2 text-sm font-medium">Título<input className="h-10 rounded-lg border border-input bg-transparent px-3 font-normal outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50" defaultValue={membership.aboutTitle ?? ""} maxLength={120} name="aboutTitle" /></label>
+            <label className="flex flex-col gap-2 text-sm font-medium">Descripción<textarea className="min-h-36 rounded-lg border border-input bg-transparent px-3 py-2 font-normal outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50" defaultValue={membership.aboutDescription ?? ""} maxLength={5000} name="aboutDescription" rows={6} /></label>
+          </div>
+          <div><h3 className="font-medium">Foto de presentación</h3><p className="mb-3 mt-1 text-sm text-muted-foreground">Puede ser un retrato, una foto del equipo o de la inmobiliaria. Guardá los cambios de texto antes de subir una foto.</p><OrganizationAssetUpload assetType="about" currentUrl={aboutImageUrl} label="Foto de presentación" organizationId={membership.id} organizationSlug={organizationSlug} /></div>
         </section>
 
         <div className="flex flex-col gap-3 border-t pt-6 sm:flex-row sm:items-center"><AdminSubmitButton pendingLabel="Guardando…">Guardar configuración</AdminSubmitButton>{settings === "saved" ? <p className="text-sm text-muted-foreground" role="status">Configuración actualizada.</p> : settings?.startsWith("invalid") ? <p className="text-sm text-destructive" role="alert">Revisá los datos ingresados.</p> : null}</div>

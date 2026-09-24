@@ -20,7 +20,7 @@ import {
   optimizeImage,
 } from "@/lib/image-optimization";
 import { createClient } from "@/lib/supabase/client";
-import { updateOrganizationAsset } from "../actions";
+import { removeOrganizationAboutImage, updateOrganizationAsset } from "../actions";
 
 type OrganizationAssetUploadProps = {
   organizationId: string;
@@ -63,7 +63,7 @@ export function OrganizationAssetUpload({
     setMessage("Preparando imagen...");
 
     try {
-      const preset = assetType === "hero" ? HERO_IMAGE_PRESET : LOGO_IMAGE_PRESET;
+      const preset = assetType === "logo" ? LOGO_IMAGE_PRESET : HERO_IMAGE_PRESET;
       const optimized = await optimizeImage(file, preset);
       setMessage("Subiendo imagen optimizada...");
       const extension = getOptimizedImageExtension(optimized.file.type);
@@ -92,16 +92,30 @@ export function OrganizationAssetUpload({
     }
   }
 
+  async function removeImage() {
+    setIsUploading(true);
+    setError(null);
+    try {
+      await removeOrganizationAboutImage(organizationSlug);
+      setMessage("Foto de presentación eliminada.");
+      router.refresh();
+    } catch {
+      setError("No se pudo eliminar la imagen.");
+    } finally {
+      setIsUploading(false);
+    }
+  }
+
   return (
     <div className="flex flex-col gap-3">
       {currentUrl ? (
         <div className="overflow-hidden rounded-lg border bg-muted p-2">
           <Image
             alt={`${label} actual`}
-            className={assetType === "logo" ? "h-20 w-auto max-w-full object-contain" : "aspect-[16/7] w-full object-cover"}
-            height={assetType === "logo" ? 80 : 525}
+            className={assetType === "logo" ? "h-20 w-auto max-w-full object-contain" : assetType === "about" ? "aspect-[4/5] max-h-72 w-auto object-cover" : "aspect-[16/7] w-full object-cover"}
+            height={assetType === "logo" ? 80 : assetType === "about" ? 500 : 525}
             src={currentUrl}
-            width={assetType === "logo" ? 320 : 1200}
+            width={assetType === "logo" ? 320 : assetType === "about" ? 400 : 1200}
           />
         </div>
       ) : (
@@ -121,6 +135,7 @@ export function OrganizationAssetUpload({
         <Button disabled={isUploading || selectedFile.length === 0} onClick={uploadAsset} type="button">
           {isUploading ? "Subiendo…" : currentUrl ? "Reemplazar" : "Subir imagen"}
         </Button>
+        {assetType === "about" && currentUrl ? <Button disabled={isUploading} onClick={removeImage} type="button" variant="outline">Quitar imagen</Button> : null}
       </div>
       <p className="text-xs text-muted-foreground">Se convierte y optimiza antes de subir. El logo conserva transparencia.</p>
       {message ? <p className="text-sm text-muted-foreground" role="status">{message}</p> : null}
